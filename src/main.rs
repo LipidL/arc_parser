@@ -11,11 +11,12 @@ use crate::analyzer::arc_analyzer;
 fn main() {
     println!("Hello, world!");
     println!("input your file");
-    let mut path = String::new();
-    io::stdin()
-        .read_line(&mut path)
-        .expect("an error occurs in std::io::stdin.readline()");
-    println!("your path is {}",path);
+    // let mut path = String::new();
+    // io::stdin()
+    //     .read_line(&mut path)
+    //     .expect("an error occurs in std::io::stdin.readline()");
+    // println!("your path is {}",path);
+    let path = String::from("/home/ubuntu/learn/rust/tools/arc_stat");
     let structures:Vec<StructureBlock> = match arc_parser::read_file(path){
         Ok(blocks) => blocks,
         Err(error) =>{

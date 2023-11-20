@@ -1,16 +1,25 @@
 {
-    // 使用 IntelliSense 了解相关属性。 
-    // 悬停以查看现有属性的描述。
-    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(OSX) Launch",
+            "name": "Compile and  Launch",
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/${workspaceFolderBasename}",
             "args": [],
             "cwd": "${workspaceRoot}",
+            "preLaunchTask": "cargo build"
+        }
+    ],
+    "tasks": [
+        {
+            "label": "cargo build",
+            "type": "shell",
+            "command": "cargo build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }
