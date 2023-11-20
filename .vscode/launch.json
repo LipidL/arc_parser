@@ -8,18 +8,7 @@
             "program": "${workspaceRoot}/target/debug/${workspaceFolderBasename}",
             "args": [],
             "cwd": "${workspaceRoot}",
-            "preLaunchTask": "cargo build"
-        }
-    ],
-    "tasks": [
-        {
-            "label": "cargo build",
-            "type": "shell",
-            "command": "cargo build",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "preLaunchTask": "rust: cargo build"
         }
     ]
 }

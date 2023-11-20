@@ -6,7 +6,7 @@ pub mod arc_parser{
     use regex::Regex;
 
     fn parse_block_header(input: &str) -> Option<(i32, f64, f64, String)> {
-        let re = Regex::new(r"^Energy\s+(\d+)\s+([0-9.]+)\s+([0-9.]+)\s+(.*)$").unwrap();
+        let re = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
         if let Some(captures) = re.captures(input) {
             let number = captures[1].parse::<i32>().unwrap();
             let float1 = captures[2].parse::<f64>().unwrap();
@@ -19,7 +19,8 @@ pub mod arc_parser{
     }
 
     fn parse_atom_data(input: &str) -> Option<(String, f64, f64, f64)> {
-        let re = Regex::new(r"(?P<s>\w+)\s+(?P<f1>\d+\.\d+)\s+(?P<f2>\d+\.\d+)\s+(?P<f3>\d+\.\d+)").unwrap();
+        //^(\w+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+.*
+        let re = Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)\s+CORE\s+.*").unwrap();
         if let Some(caps) = re.captures(input) {
             let s = caps.name("s").unwrap().as_str().to_string();
             let f1 = caps.name("f1").unwrap().as_str().parse().unwrap();
