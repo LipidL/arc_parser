@@ -19,3 +19,5 @@ To use ArcStat, enter the following command:
 
 ### Arguments
 Use `-m` or `--minimum` to print the minimum energy structures in the .arc file.
+
+more arguments are still in progress
