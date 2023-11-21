@@ -5,8 +5,8 @@ pub mod arc_parser{
     use std::io::{self, BufRead};
     use regex::Regex;
 
-    fn parse_block_header(input: &str) -> Option<(i32, f64, f64, String)> {
-        let re = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
+    fn parse_block_header(input: &str, re: &Regex) -> Option<(i32, f64, f64, String)> {
+        //let re = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
         if let Some(captures) = re.captures(input) {
             let number = captures[1].parse::<i32>().unwrap();
             let float1 = captures[2].parse::<f64>().unwrap();
@@ -18,9 +18,8 @@ pub mod arc_parser{
         }
     }
 
-    fn parse_atom_data(input: &str) -> Option<(String, f64, f64, f64)> {
-        //^(\w+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+.*
-        let re = Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)\s+CORE\s+.*").unwrap();
+    fn parse_atom_data(input: &str, re: &Regex) -> Option<(String, f64, f64, f64)> {
+        //let re = Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)\s+CORE\s+.*").unwrap();
         if let Some(caps) = re.captures(input) {
             let s = caps.name("s").unwrap().as_str().to_string();
             let f1 = caps.name("f1").unwrap().as_str().parse().unwrap();
@@ -37,9 +36,11 @@ pub mod arc_parser{
         let reader = io::BufReader::new(file);
         let mut blocks:Vec<StructureBlock> = Vec::new();
         let mut current_block: Option<StructureBlock> = None;
+        let block_header_regex = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
+        let atom_data_regex = Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)\s+CORE\s+.*").unwrap();
         for line in reader.lines(){
             let line = line?;
-            let header_parse_result = parse_block_header(&line);
+            let header_parse_result = parse_block_header(&line, &block_header_regex);
             if let Some(header_info) = header_parse_result{
                 current_block = Some(StructureBlock { 
                     energy: header_info.2, 
@@ -51,7 +52,7 @@ pub mod arc_parser{
                     blocks.push(block);
                 }
             }
-            let atom_parse_result = parse_atom_data(&line);
+            let atom_parse_result = parse_atom_data(&line, &atom_data_regex);
             if let Some(atom_info) = atom_parse_result{
                 let new_atom = Atom{
                     element: atom_info.0,
