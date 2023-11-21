@@ -30,7 +30,7 @@ fn main() {
                  .action(clap::ArgAction::Count)
                  .help("Sets a minimum flag"))
              .get_matches();
-    let default_file = "best.arc".to_string();
+    let default_file = "test.arc".to_string();
     let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
     println!("The file passed is: {}", file);
 

@@ -1,14 +1,14 @@
 pub mod arc_parser{
-    use crate::modules::structures::{Atom, StructureBlock, Coordinate};
+    use crate::modules::structures::{Atom, StructureBlock, Coordinate, CrystalInfo};
     use std::fs::File;
     use std::path::Path;
     use std::io::{self, BufRead};
     use regex::Regex;
 
-    fn parse_block_header(input: &str, re: &Regex) -> Option<(i32, f64, f64, String)> {
+    fn parse_block_header(input: &str, re: &Regex) -> Option<(u64, f64, f64, String)> {
         //let re = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
         if let Some(captures) = re.captures(input) {
-            let number = captures[1].parse::<i32>().unwrap();
+            let number = captures[1].parse::<u64>().unwrap();
             let float1 = captures[2].parse::<f64>().unwrap();
             let energy = captures[3].parse::<f64>().unwrap();
             let symmetry = captures[4].to_string();
@@ -30,6 +30,27 @@ pub mod arc_parser{
         None
     }
 
+    fn parse_crystal_data(input: &str, re: &Regex) -> Option<CrystalInfo>{
+        if let Some(caps) = re.captures(input) {
+            let x = caps.name("x").unwrap().as_str().parse().unwrap();
+            let y = caps.name("y").unwrap().as_str().parse().unwrap();
+            let z = caps.name("z").unwrap().as_str().parse().unwrap();
+            let alpha = caps.name("alpha").unwrap().as_str().parse().unwrap();
+            let beta = caps.name("beta").unwrap().as_str().parse().unwrap();
+            let gamma = caps.name("gamma").unwrap().as_str().parse().unwrap();
+            let crystal = CrystalInfo{
+                x,
+                y,
+                z,
+                alpha,
+                beta,
+                gamma
+            };
+            return Some(crystal);
+        }
+        None     
+    }
+
     pub fn read_file(filepath: String) -> io::Result<Vec<StructureBlock>>{
         let path = Path::new(&filepath);
         let file = File::open(path)?;
@@ -38,12 +59,23 @@ pub mod arc_parser{
         let mut current_block: Option<StructureBlock> = None;
         let block_header_regex = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
         let atom_data_regex = Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)\s+CORE\s+.*").unwrap();
+        let crystal_info_regex = Regex::new(r"^\w+\s+(?P<x>\d+\.\d+)\s+(?P<y>\d+\.\d+)\s+(?P<z>\d+\.\d+)\s+(?P<alpha>\d+.\d+)\s+(?P<beta>\d+.\d+)\s+(?P<gamma>\d+.\d+)").unwrap();
         for line in reader.lines(){
             let line = line?;
             let header_parse_result = parse_block_header(&line, &block_header_regex);
             if let Some(header_info) = header_parse_result{
                 current_block = Some(StructureBlock { 
-                    energy: header_info.2, 
+                    number: header_info.0,
+                    energy: header_info.2,
+                    symmetry: header_info.3,
+                    crystal: CrystalInfo{
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                        alpha: 0.0,
+                        beta: 0.0,
+                        gamma: 0.0
+                    },
                     atoms: Vec::new()
                 });
             }
@@ -60,6 +92,12 @@ pub mod arc_parser{
                 };
                 if let Some(block) = current_block.as_mut(){
                     block.atoms.push(new_atom);
+                }
+            }
+            let crystal_parse_result = parse_crystal_data(&line, &crystal_info_regex);
+            if let Some(crystal) = crystal_parse_result{
+                if let Some(block) = current_block.as_mut(){
+                    block.set_crystal_info(crystal);
                 }
             }
         }
