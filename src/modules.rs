@@ -35,9 +35,6 @@ pub mod structures {
         pub fn addatom(&mut self, atom: Atom){
             self.atoms.push(atom);
         }
-    }
-
-    impl StructureBlock{
         ///set the cell parameters of this block
         pub fn set_crystal_info(&mut self, crystal_info: CrystalInfo){
             self.crystal = crystal_info;

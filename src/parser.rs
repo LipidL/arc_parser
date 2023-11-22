@@ -7,22 +7,23 @@ pub mod arc_parser{
     use regex::Regex;
 
     /**
-     * match the block header and extract necessary values.
-     *
-     *common header:
-     *    Energy         0          0.0099      -3620.679360        C1
+    match the block header and extract necessary values.
+     
+    common header:
+        Energy         0          0.0099      -3620.679360        C1
 
-     * extracts: 
-     * + number: u64, serial number of the block, 0 in this case
-     * + float1: f64, a float that I don't know what it means
-     * + energy: f64, the energy(eV) of this block, -3620.679360 in this case
-     * + symmetry: String, symmetry of this block, C1 in this case
+    extracts: 
+     + number: u64, serial number of the block, 0 in this case
+     + float1: f64, a float that I don't know what it means
+     + energy: f64, the energy(eV) of this block, -3620.679360 in this case
+     + symmetry: String, symmetry of this block, C1 in this case
 
-     * *NOTE!!!*
-     * parameter re should be
-     * `Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap()`
-     * place it elsewhere to improve performance
-     */     
+     *NOTE!!!*
+
+     parameter re should be
+     `Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap()`
+     place it elsewhere to improve performance
+    */     
     fn parse_block_header(input: &str, re: &Regex) -> Option<(u64, f64, f64, String)> {
 
         if let Some(captures) = re.captures(input) {
@@ -37,20 +38,21 @@ pub mod arc_parser{
     }
 
     /**
-     * match the atom information and extract necessary values.
-     * 
-     * common atom info:
-     *  C        7.210469000   10.148070000    0.813536200 CORE    1 C  C    0.0000    1
-     * extracts:
-     * + s: String,  element
-     * + f1: f64, x value
-     * + f2: f64, y value
-     * + f3: f64, z value
-     * 
-     * *NOTE!!!*
-     * parameter re should be
-     * `Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)\s+CORE\s+.*").unwrap()`
-     * place it elsewhere to improve performance
+    match the atom information and extract necessary values.
+     
+    common atom info:
+        C        7.210469000   10.148070000    0.813536200 CORE    1 C  C    0.0000    1
+    extracts:
+    + s: String,  element
+    + f1: f64, x value
+    + f2: f64, y value
+    + f3: f64, z value
+    
+    *NOTE!!!*
+    
+    parameter re should be
+    `Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)\s+CORE\s+.*").unwrap()`
+    place it elsewhere to improve performance
      */
     fn parse_atom_data(input: &str, re: &Regex) -> Option<(String, f64, f64, f64)> {
         //let re = Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)\s+CORE\s+.*").unwrap();
@@ -65,17 +67,19 @@ pub mod arc_parser{
     }
 
     /**
-     * match cell information and extract necessary values.
-     * 
-     * common cell information header:
-     *  PBC   20.19500000   20.19500000   29.51410000   90.00000000   90.00000000  120.00000000
-     * extracts:
-     * + crystal: CrystalInfo, cell information of the block
-     * *NOTE!!!*
-     * parameter re should be 
-     * `Regex::new(r"^\w+\s+(?P<x>\d+\.\d+)\s+(?P<y>\d+\.\d+)\s+(?P<z>\d+\.\d+)\s+(?P<alpha>\d+.\d+)\s+(?P<beta>\d+.\d+)\s+(?P<gamma>\d+.\d+)").unwrap()`
-     * place it elsewhere to improve performance
-     */
+    match cell information and extract necessary values.
+    
+    common cell information header:
+    PBC   20.19500000   20.19500000   29.51410000   90.00000000   90.00000000  120.00000000
+    extracts:
+    + crystal: CrystalInfo, cell information of the block
+    
+    *NOTE!!!*
+    
+    parameter re should be 
+    `Regex::new(r"^\w+\s+(?P<x>\d+\.\d+)\s+(?P<y>\d+\.\d+)\s+(?P<z>\d+\.\d+)\s+(?P<alpha>\d+.\d+)\s+(?P<beta>\d+.\d+)\s+(?P<gamma>\d+.\d+)").unwrap()`
+    place it elsewhere to improve performance
+    */
     fn parse_crystal_data(input: &str, re: &Regex) -> Option<CrystalInfo>{
         if let Some(caps) = re.captures(input) {
             let x = caps.name("x").unwrap().as_str().parse().unwrap();
