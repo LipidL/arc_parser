@@ -24,5 +24,11 @@ To use arc_parser, enter the following command:
     ```
     ./arc_parser -f myfile.arc -m
     ```
++ use `-c` or `--count` to count the structures in the .arc file.
+
++ use `--consistency` to check if the structures in the .arc file have consistent atom composition
+
++ use `-e` or `--energy-list` to list all energy present in the .arc file
+    note that energy difference less than 0.001eV will be seen as the same.
 
 more arguments are still in progress
