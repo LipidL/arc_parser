@@ -5,7 +5,8 @@ mod analyzer;
 use clap::{Arg,Command};
 use crate::modules::structures::StructureBlock;
 use crate::parser::arc_parser;
-use crate::analyzer::arc_analyzer;
+use crate::analyzer::arc_analyzer::{self, check_atom_consistency};
+use colored::*;
 
 
 fn main() {
@@ -34,6 +35,10 @@ fn main() {
                  .long("count")
                  .action(clap::ArgAction::Count)
                  .help("Sets a count flag"))
+             .arg(Arg::new("consistency")
+                 .long("consistency")
+                 .action(clap::ArgAction::Count)
+                 .help("Sets a consistency flag"))
              .get_matches();
     let default_file = "test.arc".to_string();
     let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
@@ -45,6 +50,10 @@ fn main() {
     };
     let count_flag = match matches.get_count("count") {
         0 => false,
+        _ => true,
+    };
+    let consistency_flag = match matches.get_count("consistency") {
+        0=> false,
         _ => true,
     };
 
@@ -68,5 +77,11 @@ fn main() {
     if count_flag{
         let structure_cout = arc_analyzer::count_strucutre_block(&structures);
         println!("there are {} strucutres", structure_cout);
+    }
+    if consistency_flag{
+        match check_atom_consistency(&structures){
+            true => println!("this file's block have {} atoms!","consistent".green()),
+            false => println!("this file's block have {} atoms!","non-consistent".red()),
+        }
     }
 }
