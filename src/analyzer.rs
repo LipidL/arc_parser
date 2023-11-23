@@ -45,4 +45,36 @@ pub mod arc_analyzer{
         }
         true
     }
+    /**
+     strucutre for storing energy and count of a Vec<StructureBlock>
+     */
+    pub struct EnergyInfo{
+        pub energy: f64,
+        pub count: u64,
+    }
+    /**
+    list different energy in a Vec<StructureBlock>.
+    threshold setted to be 0.001
+     */
+    pub fn list_energy(blocks: &Vec<StructureBlock>) -> Vec<EnergyInfo>{
+        let mut energy_list: Vec<EnergyInfo> = Vec::new();
+        let threshold = 0.001;
+        let mut min_diff = f64::MAX;
+        let mut min_index:Option<usize> = None;
+        for block in blocks{
+            let current_energy = block.energy;
+            for (i, info) in energy_list.iter_mut().enumerate(){
+                let diff = (info.energy - current_energy).abs();
+                if diff < threshold && diff < min_diff{
+                    min_diff = diff;
+                    min_index = Some(i)
+                }
+            }
+            match min_index{
+                Some(index) => energy_list[index].count += 1,
+                None => energy_list.push(EnergyInfo { energy: current_energy, count: 1 }),
+            }
+        }
+        energy_list
+    }
 }

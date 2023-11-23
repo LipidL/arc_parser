@@ -5,7 +5,7 @@ mod analyzer;
 use clap::{Arg,Command};
 use crate::modules::structures::StructureBlock;
 use crate::parser::arc_parser;
-use crate::analyzer::arc_analyzer::{self, check_atom_consistency};
+use crate::analyzer::arc_analyzer::{self, check_atom_consistency, list_energy};
 use colored::*;
 
 
@@ -39,6 +39,11 @@ fn main() {
                  .long("consistency")
                  .action(clap::ArgAction::Count)
                  .help("Sets a consistency flag"))
+             .arg(Arg::new("energy_list")
+                 .short('e')
+                 .long("energy-list")
+                 .action(clap::ArgAction::Count)
+                 .help("Sets a count flag"))
              .get_matches();
     let default_file = "test.arc".to_string();
     let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
@@ -53,7 +58,11 @@ fn main() {
         _ => true,
     };
     let consistency_flag = match matches.get_count("consistency") {
-        0=> false,
+        0 => false,
+        _ => true,
+    };
+    let energy_list_flag = match matches.get_count("energy_list") {
+        0 => false,
         _ => true,
     };
 
@@ -82,6 +91,13 @@ fn main() {
         match check_atom_consistency(&structures){
             true => println!("this file's block have {} atoms!","consistent".green()),
             false => println!("this file's block have {} atoms!","non-consistent".red()),
+        }
+    }
+    if energy_list_flag{
+        let mut energy_list = list_energy(&structures);
+        energy_list.sort_by(|a, b| b.energy.partial_cmp(&a.energy).unwrap());
+        for energy_info in energy_list{
+            println!("energy: {}, present for {} time(s)", energy_info.energy, energy_info.count);
         }
     }
 }
