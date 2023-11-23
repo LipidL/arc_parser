@@ -29,12 +29,21 @@ fn main() {
                  .long("minimum")
                  .action(clap::ArgAction::Count)
                  .help("Sets a minimum flag"))
+             .arg(Arg::new("count")
+                 .short('c')
+                 .long("count")
+                 .action(clap::ArgAction::Count)
+                 .help("Sets a count flag"))
              .get_matches();
     let default_file = "test.arc".to_string();
     let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
     println!("The file passed is: {}", file);
 
     let minimum_flag = match matches.get_count("minimum"){
+        0 => false,
+        _ => true,
+    };
+    let count_flag = match matches.get_count("count") {
         0 => false,
         _ => true,
     };
@@ -50,10 +59,14 @@ fn main() {
         }
     };
     if minimum_flag{
-        let minimum_energy = arc_analyzer::find_minimum_energy(structures);
+        let minimum_energy = arc_analyzer::find_minimum_energy(&structures);
         match minimum_energy{
             Some(e) => println!("the minimum energy is {}", e),
             None => println!("no minimum energy found!"),
         };
+    }
+    if count_flag{
+        let structure_cout = arc_analyzer::count_strucutre_block(&structures);
+        println!("there are {} strucutres", structure_cout);
     }
 }
