@@ -1,5 +1,5 @@
-# ArcStat
-ArcStat is a small program written in Rust that parses .arc files produced by the [LASP](http://www.lasphub.com/) program.
+# arc_parser
+arc_parser is a small program written in Rust that parses .arc files produced by the [LASP](http://www.lasphub.com/) program.
 
 ## Completed Functions
 + Prints the minimum energy structures in the .arc file
@@ -12,12 +12,17 @@ ArcStat is a small program written in Rust that parses .arc files produced by th
 
 ## Usage
 ### Basic Command
-To use ArcStat, enter the following command:
+To use arc_parser, enter the following command:
 ```
-./arc_stat myfile.arc
+./arc_parser -f myfile.arc
 ```
 
 ### Arguments
-Use `-m` or `--minimum` to print the minimum energy structures in the .arc file.
++ Use `-m` or `--minimum` to print the minimum energy structures in the .arc file.
+
+    for example:
+    ```
+    ./arc_parser -f myfile.arc -m
+    ```
 
 more arguments are still in progress
