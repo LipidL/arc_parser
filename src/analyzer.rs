@@ -46,14 +46,14 @@ pub mod arc_analyzer{
         true
     }
     /**
-     strucutre for storing energy and count of a Vec<StructureBlock>
+     strucutre for storing energy and count of a `Vec<StructureBlock>`
      */
     pub struct EnergyInfo{
         pub energy: f64,
         pub count: u64,
     }
     /**
-    list different energy in a Vec<StructureBlock>.
+    list different energy in a `Vec<StructureBlock>`.
     threshold setted to be 0.001
      */
     pub fn list_energy(blocks: &Vec<StructureBlock>) -> Vec<EnergyInfo>{
