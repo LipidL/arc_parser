@@ -44,6 +44,10 @@ fn main() {
                  .long("energy-list")
                  .action(clap::ArgAction::Count)
                  .help("Sets a count flag"))
+             .arg(Arg::new("extract_minimum")
+                 .long("extract")
+                 .action(clap::ArgAction::Count)
+                 .help("extract the minimum"))
              .get_matches();
     let default_file = "test.arc".to_string();
     let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
@@ -65,7 +69,10 @@ fn main() {
         0 => false,
         _ => true,
     };
-
+    let extract_minimum_flag = match matches.get_count("extract_minimum") {
+        0 => false,
+        _ => true,
+    };
 
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
@@ -98,6 +105,18 @@ fn main() {
         energy_list.sort_by(|a, b| b.energy.partial_cmp(&a.energy).unwrap());
         for energy_info in energy_list{
             println!("energy: {}, present for {} time(s)", energy_info.energy, energy_info.count);
+        }
+    }
+    if extract_minimum_flag{
+        let minimum_block = arc_analyzer::extract_minimum(&structures);
+        match minimum_block{
+            None =>{
+                println!("cannot find the minimum in this file!")
+            }
+            Some(block) => {
+                block.write_to_file(String::from("minimum.arc")).unwrap();
+                println!("the minimum strucutre has been written to minimum.arc")
+            }
         }
     }
 }

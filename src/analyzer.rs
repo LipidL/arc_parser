@@ -77,4 +77,7 @@ pub mod arc_analyzer{
         }
         energy_list
     }
+    pub fn extract_minimum(blocks: &Vec<StructureBlock>) -> Option<StructureBlock> {
+        blocks.iter().min_by(|a, b| a.energy.partial_cmp(&b.energy).unwrap()).cloned()
+    }
 }
