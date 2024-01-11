@@ -11,12 +11,6 @@ use colored::*;
 
 fn main() {
     println!("Hello, world!");
-    // println!("input your file");
-    // let mut path = String::new();
-    // io::stdin()
-    //     .read_line(&mut path)
-    //     .expect("an error occurs in std::io::stdin.readline()");
-    // println!("your path is {}",path);
     let matches = Command::new("arc_stat")
         .version("0.1.0")
         .author("Lipid<23110220057@m.fudan.edu.cn>")
@@ -28,57 +22,41 @@ fn main() {
             .arg(Arg::new("minimum")
                 .short('m')
                 .long("minimum")
-                .action(clap::ArgAction::Count)
+                .action(clap::ArgAction::SetTrue)
                 .help("Sets a minimum flag"))
             .arg(Arg::new("count")
                 .short('c')
                 .long("count")
-                .action(clap::ArgAction::Count)
+                .action(clap::ArgAction::SetTrue)
                 .help("Sets a count flag"))
             .arg(Arg::new("consistency")
                 .long("consistency")
-                .action(clap::ArgAction::Count)
+                .action(clap::ArgAction::SetTrue)
                 .help("Sets a consistency flag"))
             .arg(Arg::new("energy_list")
                 .short('e')
                 .long("energy-list")
-                .action(clap::ArgAction::Count)
+                .action(clap::ArgAction::SetTrue)
                 .help("Sets a count flag"))
             .arg(Arg::new("extract_minimum")
                 .long("extract")
-                .action(clap::ArgAction::Count)
+                .action(clap::ArgAction::SetTrue)
                 .help("extract the minimum"))
             .arg(Arg::new("rearrange_atoms")
                 .short('r')
                 .long("rearrange")
-                .action(clap::ArgAction::SetTrue)
-                .help("extract the minimum"))
+                .help("rearrange by atom's coordination"))
             .get_matches();
     let default_file = "test.arc".to_string();
     let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
     println!("The file passed is: {}", file);
 
-    let minimum_flag = match matches.get_count("minimum"){
-        0 => false,
-        _ => true,
-    };
-    let count_flag = match matches.get_count("count") {
-        0 => false,
-        _ => true,
-    };
-    let consistency_flag = match matches.get_count("consistency") {
-        0 => false,
-        _ => true,
-    };
-    let energy_list_flag = match matches.get_count("energy_list") {
-        0 => false,
-        _ => true,
-    };
-    let extract_minimum_flag = match matches.get_count("extract_minimum") {
-        0 => false,
-        _ => true,
-    };
-    let rearrange_flag = matches.get_flag("rearrange_atoms");
+    let minimum_flag = matches.get_flag("minimum");
+    let count_flag = matches.get_flag("count");
+    let consistency_flag = matches.get_flag("consistency");
+    let energy_list_flag = matches.get_flag("energy_list");
+    let extract_minimum_flag = matches.get_flag("extract_minimum");
+    let rearrange_target = matches.get_one::<String>("rearrange_atoms");
 
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
@@ -125,17 +103,36 @@ fn main() {
             }
         }
     }
-    if rearrange_flag{
+
+    if let Some(target) = rearrange_target{
         let minimum_block = arc_analyzer::extract_minimum(&structures);
-        match minimum_block{
-            None => {
-                println!("cannot find the minimum in this file!")
+        if let Some(mut real_minimum) = minimum_block{
+            let coordination = match target.to_uppercase().as_str(){
+                "X" => {
+                    arc_analyzer::rearrange_atoms(&mut real_minimum, |a, b| a.coordinate.0.partial_cmp(&b.coordinate.0).unwrap());
+                    Some("X")
+                },
+                "Y" => {
+                    arc_analyzer::rearrange_atoms(&mut real_minimum, |a, b| a.coordinate.1.partial_cmp(&b.coordinate.1).unwrap());
+                    Some("Y")
+                },
+                "Z" => {
+                    arc_analyzer::rearrange_atoms(&mut real_minimum, |a, b| a.coordinate.2.partial_cmp(&b.coordinate.2).unwrap());
+                    Some("Z")
+                },
+                _ => {
+                    println!("Please verify the sorting coordination: X, Y or Z.");
+                    None
+                }
+            };
+            real_minimum.write_to_file(String::from("rearranged.arc")).unwrap();
+            match coordination{
+                Some(coordination) => println!("the rearranged minimum structure (by {} value) has been generated.", coordination),
+                None => println!("Please specify the coordination to be sorted!\n rearranged.arc reamains unchanged.")
             }
-            Some(mut block) => {
-                arc_analyzer::rearrange_atoms(&mut block, |a, b| a.coordinate.0.partial_cmp(&b.coordinate.0).unwrap());
-                block.write_to_file(String::from("rearranged.arc")).unwrap();
-                println!("the rearranged minimum structure (by x value) has been generated.\n")
-            }
+            
         }
+
     }
+
 }

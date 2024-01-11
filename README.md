@@ -32,4 +32,11 @@ To use arc_parser, enter the following command:
 
     *note that energy difference less than 0.001eV will be seen as the same.*
 
++ use `--extract` to extract the structure with the minimum energy to minimum.arc
+
++ use `-r` or `--rearrange` to rearrange the minimum block by atom's coordinate, x, y or z
+
+    for example:
+    ./arc_parser -f myfile.arc --rearrange x
+
 more arguments are still in progress
