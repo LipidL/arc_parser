@@ -22,33 +22,38 @@ fn main() {
         .author("Lipid<23110220057@m.fudan.edu.cn>")
         .about("parses .arc file")
         .arg(Arg::new("file")
-                 .short('f')
-                 .long("file")
-                 .help("target .arc file"))
-             .arg(Arg::new("minimum")
-                 .short('m')
-                 .long("minimum")
-                 .action(clap::ArgAction::Count)
-                 .help("Sets a minimum flag"))
-             .arg(Arg::new("count")
-                 .short('c')
-                 .long("count")
-                 .action(clap::ArgAction::Count)
-                 .help("Sets a count flag"))
-             .arg(Arg::new("consistency")
-                 .long("consistency")
-                 .action(clap::ArgAction::Count)
-                 .help("Sets a consistency flag"))
-             .arg(Arg::new("energy_list")
-                 .short('e')
-                 .long("energy-list")
-                 .action(clap::ArgAction::Count)
-                 .help("Sets a count flag"))
-             .arg(Arg::new("extract_minimum")
-                 .long("extract")
-                 .action(clap::ArgAction::Count)
-                 .help("extract the minimum"))
-             .get_matches();
+                .short('f')
+                .long("file")
+                .help("target .arc file"))
+            .arg(Arg::new("minimum")
+                .short('m')
+                .long("minimum")
+                .action(clap::ArgAction::Count)
+                .help("Sets a minimum flag"))
+            .arg(Arg::new("count")
+                .short('c')
+                .long("count")
+                .action(clap::ArgAction::Count)
+                .help("Sets a count flag"))
+            .arg(Arg::new("consistency")
+                .long("consistency")
+                .action(clap::ArgAction::Count)
+                .help("Sets a consistency flag"))
+            .arg(Arg::new("energy_list")
+                .short('e')
+                .long("energy-list")
+                .action(clap::ArgAction::Count)
+                .help("Sets a count flag"))
+            .arg(Arg::new("extract_minimum")
+                .long("extract")
+                .action(clap::ArgAction::Count)
+                .help("extract the minimum"))
+            .arg(Arg::new("rearrange_atoms")
+                .short('r')
+                .long("rearrange")
+                .action(clap::ArgAction::SetTrue)
+                .help("extract the minimum"))
+            .get_matches();
     let default_file = "test.arc".to_string();
     let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
     println!("The file passed is: {}", file);
@@ -73,6 +78,7 @@ fn main() {
         0 => false,
         _ => true,
     };
+    let rearrange_flag = matches.get_flag("rearrange_atoms");
 
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
@@ -116,6 +122,19 @@ fn main() {
             Some(block) => {
                 block.write_to_file(String::from("minimum.arc")).unwrap();
                 println!("the minimum strucutre has been written to minimum.arc")
+            }
+        }
+    }
+    if rearrange_flag{
+        let minimum_block = arc_analyzer::extract_minimum(&structures);
+        match minimum_block{
+            None => {
+                println!("cannot find the minimum in this file!")
+            }
+            Some(mut block) => {
+                arc_analyzer::rearrange_atoms(&mut block, |a, b| a.coordinate.0.partial_cmp(&b.coordinate.0).unwrap());
+                block.write_to_file(String::from("rearranged.arc")).unwrap();
+                println!("the rearranged minimum structure (by x value) has been generated.\n")
             }
         }
     }

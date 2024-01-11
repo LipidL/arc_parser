@@ -1,6 +1,8 @@
 pub mod arc_analyzer{
     //! necessary functions for analyzing StructureBlock
-    use crate::modules::structures:: StructureBlock;
+    use std::cmp::Ordering;
+
+    use crate::modules::structures::{ StructureBlock, Atom};
     /**
     find the minimum energy of a given vector of StrucutreBlock
     return some(f64) if minimum found
@@ -15,7 +17,9 @@ pub mod arc_analyzer{
 
     /**
      count the number of blocks in the file
-     return an u64 representing the number of blocks
+
+     returns:
+        + count:u64, the number of blocks in a Vec<StructureBlock>
      */
     pub fn count_strucutre_block(blocks: &Vec<StructureBlock>) -> u64{
         blocks.len() as u64
@@ -23,8 +27,10 @@ pub mod arc_analyzer{
 
     /**
     check if all of the blocks have the same atoms
-    return `true` if all blocks have the same atoms
-    return `false` elsewise
+
+    returns:
+        + `true` if all blocks have the same atoms; 
+        + `false` elsewise
      */
     pub fn check_atom_consistency(blocks: &Vec<StructureBlock>) -> bool{
         let mut atom_map = std::collections::HashMap::new();
@@ -77,7 +83,27 @@ pub mod arc_analyzer{
         }
         energy_list
     }
+
+    /**
+    return the minimum structure block of the given `Vec<StructureBlock>`
+
+    args:
+        + blocks:&Vec<StructureBlock>
+
+    returns:
+        + Option<StructureBlock>, Some(StructureBlock) if the minimum found; None if no minumum found.
+     */
     pub fn extract_minimum(blocks: &Vec<StructureBlock>) -> Option<StructureBlock> {
         blocks.iter().min_by(|a, b| a.energy.partial_cmp(&b.energy).unwrap()).cloned()
+    }
+
+    /**
+    rearrange the atoms in a Vec<StructureBlock>
+     */
+    pub fn rearrange_atoms<F>(block: &mut StructureBlock, compare: F)
+    where
+        F: Fn(&Atom, &Atom) -> Ordering,
+    {
+        block.atoms.sort_by(compare);
     }
 }
