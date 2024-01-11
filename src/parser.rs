@@ -45,11 +45,13 @@ pub mod arc_parser{
      */
     pub struct BlockHeaderParser{
         re: Regex,
+        re2: Regex //in case that some block don't have symmetry line
     }
     impl BlockHeaderParser{
         pub fn new() -> Self{
             let block_header_regex = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
-            Self { re: block_header_regex }
+            let block_header_without_symmetry_regex = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)").unwrap();
+            Self { re: block_header_regex, re2: block_header_without_symmetry_regex }
         }
         /**
         match the block header and extract necessary values.
@@ -71,7 +73,13 @@ pub mod arc_parser{
                 let energy = captures[3].parse::<f64>().unwrap();
                 let symmetry = captures[4].to_string();
                 Some((number, float1, energy, symmetry))
-            } else {
+            } else if let Some(captures) = self.re2.captures(input){
+                let number = captures[1].parse::<u64>().unwrap();
+                let float1 = captures[2].parse::<f64>().unwrap();
+                let energy = captures[3].parse::<f64>().unwrap();
+                let symmetry = String::from("C1");
+                Some((number, float1, energy, symmetry))
+            } else{
                 None
             }
         } 

@@ -6,7 +6,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/${workspaceFolderBasename}",
-            "args": [],
+            "args": ["-f","lasp.str","-mce"],
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "rust: cargo build"
         }
