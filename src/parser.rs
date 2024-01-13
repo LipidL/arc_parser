@@ -49,8 +49,8 @@ pub mod arc_parser{
     }
     impl BlockHeaderParser{
         pub fn new() -> Self{
-            let block_header_regex = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
-            let block_header_without_symmetry_regex = Regex::new(r"^\s+Energy\s+(\d+)\s+([0-9.]+)\s+(-?[0-9.]+)").unwrap();
+            let block_header_regex = Regex::new(r"^\s+Energy\s+(\d+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)\s+(.*)$").unwrap();
+            let block_header_without_symmetry_regex = Regex::new(r"^\s+Energy\s+(\d+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)").unwrap();
             Self { re: block_header_regex, re2: block_header_without_symmetry_regex }
         }
         /**
