@@ -65,9 +65,9 @@ pub mod arc_analyzer{
     pub fn list_energy(blocks: &Vec<StructureBlock>) -> Vec<EnergyInfo>{
         let mut energy_list: Vec<EnergyInfo> = Vec::new();
         let threshold = 0.001;
-        let mut min_diff = f64::MAX;
-        let mut min_index:Option<usize> = None;
         for block in blocks{
+            let mut min_diff = f64::MAX;
+            let mut min_index:Option<usize> = None;
             let current_energy = block.energy;
             for (i, info) in energy_list.iter_mut().enumerate(){
                 let diff = (info.energy - current_energy).abs();
