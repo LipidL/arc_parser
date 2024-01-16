@@ -11,6 +11,7 @@ use colored::*;
 
 fn main() {
     println!("Hello, world!");
+    //set up command line arguments
     let matches = Command::new("arc_stat")
         .version("0.1.0")
         .author("Lipid<23110220057@m.fudan.edu.cn>")
@@ -47,26 +48,27 @@ fn main() {
                 .long("rearrange")
                 .help("rearrange by atom's coordination, write to rearranged.arc"))
             .get_matches();
+    // determine the file path: default is test.arc, can be specified by -f myfile.arc
     let default_file = "test.arc".to_string();
     let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
     println!("The file passed is: {}", file);
-
+    //set flags from command line arguments
     let minimum_flag = matches.get_flag("minimum");
     let count_flag = matches.get_flag("count");
     let consistency_flag = matches.get_flag("consistency");
     let energy_list_flag = matches.get_flag("energy_list");
     let extract_minimum_flag = matches.get_flag("extract_minimum");
     let rearrange_target = matches.get_one::<String>("rearrange_atoms");
-
+    //read the arc file
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
-    // let path = String::from("best.arc");
     let structures:Vec<StructureBlock> = match arc_parser::read_file(file.to_string()){
         Ok(blocks) => blocks,
         Err(error) =>{
             panic!("{}", error);
         }
     };
+    //extract the minimum energy
     if minimum_flag{
         let minimum_energy = arc_analyzer::find_minimum_energy(&structures);
         match minimum_energy{
@@ -74,10 +76,12 @@ fn main() {
             None => println!("no minimum energy found!"),
         };
     }
+    //count the number of blocks
     if count_flag{
         let structure_cout = arc_analyzer::count_strucutre_block(&structures);
         println!("there are {} strucutres", structure_cout);
     }
+    //check the consistency
     if consistency_flag{
         match check_atom_consistency(&structures){
             true => println!("this file's block have {} atoms!","consistent".green()),
