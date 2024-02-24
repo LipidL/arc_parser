@@ -32,7 +32,7 @@ pub mod arc_analyzer{
         + `true` if all blocks have the same atoms; 
         + `false` elsewise
      */
-    pub fn check_atom_consistency(blocks: &Vec<StructureBlock>) -> bool{
+    pub fn check_atom_consistency(blocks: &Vec<StructureBlock>) -> Option<std::collections::HashMap<&String, i32>>{
         let mut atom_map = std::collections::HashMap::new();
 
         for block in blocks {
@@ -45,11 +45,11 @@ pub mod arc_analyzer{
                 atom_map = local_map;
             } else {
                 if atom_map != local_map {
-                    return false;
+                    return None;
                 }
             }
         }
-        true
+        Some(atom_map)
     }
     /**
      strucutre for storing energy and count of a `Vec<StructureBlock>`

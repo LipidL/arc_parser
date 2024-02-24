@@ -32,6 +32,7 @@ fn main() {
                 .help("count the number of strucutres in the file"))
             .arg(Arg::new("consistency")
                 .long("consistency")
+                .short('C')
                 .action(clap::ArgAction::SetTrue)
                 .help("check if all the structures are composed by identical atoms"))
             .arg(Arg::new("energy_list")
@@ -84,8 +85,14 @@ fn main() {
     //check the consistency
     if consistency_flag{
         match check_atom_consistency(&structures){
-            true => println!("this file's block have {} atoms!","consistent".green()),
-            false => println!("this file's block have {} atoms!","non-consistent".red()),
+            Some(hashmap) => {
+                println!("this file's block have {} atoms!","consistent".green());
+                println!("these structures contain following atoms:");
+                for (atom, count) in hashmap{
+                    println!("{}, {}",atom, count);
+                } 
+            },
+            None => println!("this file's block have {} atoms!","non-consistent".red()),
         }
     }
     if energy_list_flag{
