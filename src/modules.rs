@@ -60,5 +60,12 @@ pub mod structures {
             writeln!(file, "\n")?;
             Ok(())
         }
+        pub fn expand_crystal(&self, scale:f64) -> StructureBlock{
+            let mut new_block:StructureBlock = self.clone();
+            new_block.crystal.x *= scale;
+            new_block.crystal.y *= scale;
+            new_block.crystal.z *= scale;
+            new_block
+        }
     }
 }

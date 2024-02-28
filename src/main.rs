@@ -2,7 +2,7 @@ mod modules;
 pub mod parser;
 mod analyzer;
 
-use clap::{Arg,Command};
+use clap::{Arg,Command,value_parser,ArgAction};
 use crate::modules::structures::StructureBlock;
 use crate::parser::arc_parser;
 use crate::analyzer::arc_analyzer::{self, check_atom_consistency, list_energy};
@@ -10,13 +10,16 @@ use colored::*;
 
 
 fn main() {
-    println!("Hello, world!");
+    println!("Hello, this is arc_parser!");
     //set up command line arguments
     let matches = Command::new("arc_stat")
-        .version("0.1.0")
+        .version("0.2.0")
         .author("Lipid<23110220057@m.fudan.edu.cn>")
         .about("parses .arc file")
         .arg(Arg::new("file")
+            .value_parser(value_parser!(String))
+            .action(ArgAction::Set)
+            .required(true)
                 .short('f')
                 .long("file")
                 .help("target .arc file"))
@@ -36,8 +39,8 @@ fn main() {
                 .action(clap::ArgAction::SetTrue)
                 .help("check if all the structures are composed by identical atoms"))
             .arg(Arg::new("energy_list")
-                .short('e')
-                .long("energy-list")
+                .short('l')
+                .long("list")
                 .action(clap::ArgAction::SetTrue)
                 .help("list all energies in the file, energy difference less than 0.001 are seen as the same"))
             .arg(Arg::new("extract_minimum")
@@ -48,10 +51,16 @@ fn main() {
                 .short('r')
                 .long("rearrange")
                 .help("rearrange by atom's coordination, write to rearranged.arc"))
+            .arg(Arg::new("scale_crystal")
+                .value_parser(value_parser!(f64))
+                .action(ArgAction::Set)
+                .required(false)
+                .long("scale")
+                .help("scale the minimum structure's crystal by given scale"))
             .get_matches();
     // determine the file path: default is test.arc, can be specified by -f myfile.arc
     let default_file = "test.arc".to_string();
-    let file: &String = matches.get_one::<String>("file").unwrap_or(&default_file);
+    let file = matches.get_one("file").unwrap_or(&default_file);
     println!("The file passed is: {}", file);
     //set flags from command line arguments
     let minimum_flag = matches.get_flag("minimum");
@@ -60,6 +69,7 @@ fn main() {
     let energy_list_flag = matches.get_flag("energy_list");
     let extract_minimum_flag = matches.get_flag("extract_minimum");
     let rearrange_target = matches.get_one::<String>("rearrange_atoms");
+    let scale = matches.get_one("scale_crystal");
     //read the arc file
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
@@ -95,6 +105,7 @@ fn main() {
             None => println!("this file's block have {} atoms!","non-consistent".red()),
         }
     }
+    //list different energy
     if energy_list_flag{
         let mut energy_list = list_energy(&structures);
         energy_list.sort_by(|a, b| b.energy.partial_cmp(&a.energy).unwrap());
@@ -102,6 +113,7 @@ fn main() {
             println!("energy: {}, present for {} time(s)", energy_info.energy, energy_info.count);
         }
     }
+    //extract minimum energy
     if extract_minimum_flag{
         let minimum_block = arc_analyzer::extract_minimum(&structures);
         match minimum_block{
@@ -114,7 +126,7 @@ fn main() {
             }
         }
     }
-
+    //rearrange atoms of minimum structure by given target
     if let Some(target) = rearrange_target{
         let minimum_block = arc_analyzer::extract_minimum(&structures);
         if let Some(mut real_minimum) = minimum_block{
@@ -140,10 +152,17 @@ fn main() {
             match coordination{
                 Some(coordination) => println!("the rearranged minimum structure (by {} value) has been generated.", coordination),
                 None => println!("Please specify the coordination to be sorted!\n rearranged.arc reamains unchanged.")
-            }
-            
+            }         
         }
-
+    }
+    //expand the minimum structure by given scale
+    if let Some(scale) = scale{
+        let minimum_block = arc_analyzer::extract_minimum(&structures);
+        if let Some(minimum_block) = minimum_block{
+            let new_block = minimum_block.expand_crystal(*scale);
+            new_block.write_to_file(String::from("scaled.arc")).unwrap();
+            println!("minimum structure has been scaled to expanded.arc.")
+        }
     }
 
 }
