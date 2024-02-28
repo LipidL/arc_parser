@@ -161,7 +161,7 @@ fn main() {
         if let Some(minimum_block) = minimum_block{
             let new_block = minimum_block.expand_crystal(*scale);
             new_block.write_to_file(String::from("scaled.arc")).unwrap();
-            println!("minimum structure has been scaled to expanded.arc.")
+            println!("minimum structure has been scaled to scaled.arc.")
         }
     }
 
