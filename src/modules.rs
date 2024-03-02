@@ -1,5 +1,10 @@
 pub mod structures {
     //! necessary structures to represent arc block
+    pub enum CoordinateChoice{
+        X,
+        Y,
+        Z
+    }
 
     use std::{fs::File, io::Error, io::Write};
     #[derive(Clone)] 
@@ -65,6 +70,15 @@ pub mod structures {
             new_block.crystal.x *= scale;
             new_block.crystal.y *= scale;
             new_block.crystal.z *= scale;
+            new_block
+        }
+        pub fn scale_crystal(&self, coordination:CoordinateChoice, scale:f64) -> StructureBlock{
+            let mut new_block:StructureBlock = self.clone();
+            match coordination{
+                CoordinateChoice::X => new_block.crystal.x *= scale,
+                CoordinateChoice::Y => new_block.crystal.y *= scale,
+                CoordinateChoice::Z => new_block.crystal.z *= scale,
+            }
             new_block
         }
     }

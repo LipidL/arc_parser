@@ -52,10 +52,11 @@ fn main() {
                 .long("rearrange")
                 .help("rearrange by atom's coordination, write to rearranged.arc"))
             .arg(Arg::new("scale_crystal")
-                .value_parser(value_parser!(f64))
-                .action(ArgAction::Set)
-                .required(false)
                 .long("scale")
+                .short('s')
+                .action(ArgAction::Append)
+                .value_parser(value_parser!(f64))
+                .required(false)
                 .help("scale the minimum structure's crystal by given scale"))
             .get_matches();
     // determine the file path: default is test.arc, can be specified by -f myfile.arc
@@ -69,7 +70,9 @@ fn main() {
     let energy_list_flag = matches.get_flag("energy_list");
     let extract_minimum_flag = matches.get_flag("extract_minimum");
     let rearrange_target = matches.get_one::<String>("rearrange_atoms");
-    let scale = matches.get_one("scale_crystal");
+    //let scale:Option<Vec<f64>> = matches.get_many("scale_crystal").copied().collect();
+    let scale: Option<Vec<f64>> = matches.get_many("scale_crystal")
+                                    .map(|v| v.copied().collect());
     //read the arc file
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
@@ -159,7 +162,15 @@ fn main() {
     if let Some(scale) = scale{
         let minimum_block = arc_analyzer::extract_minimum(&structures);
         if let Some(minimum_block) = minimum_block{
-            let new_block = minimum_block.expand_crystal(*scale);
+            let mut new_block = minimum_block.clone();
+            if scale.len() == 1{
+                new_block = new_block.expand_crystal(scale[0]);
+            }
+            else if scale.len() == 3{
+                new_block = new_block.scale_crystal(modules::structures::CoordinateChoice::X, scale[0]);
+                new_block = new_block.scale_crystal(modules::structures::CoordinateChoice::Y, scale[1]);
+                new_block = new_block.scale_crystal(modules::structures::CoordinateChoice::Z, scale[2]);
+            }
             new_block.write_to_file(String::from("scaled.arc")).unwrap();
             println!("minimum structure has been scaled to scaled.arc.")
         }
