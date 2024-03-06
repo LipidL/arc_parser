@@ -92,6 +92,9 @@ fn main() {
             println!("structure in Badstr.arc: {}",structures.len());
             println!("unconverged iterations in lasp.out: {}", unconverged_number);
         }
+        else {
+            println!("{}","this result might be reliable!".green());
+        }
         return;
     }
     let structures:Vec<StructureBlock> = match arc_parser::read_file(file.to_string()){
