@@ -2,7 +2,7 @@ mod modules;
 pub mod parser;
 mod analyzer;
 
-use clap::{Arg,Command,value_parser,ArgAction};
+use clap::{value_parser, Arg, ArgAction, Command};
 use crate::modules::structures::StructureBlock;
 use crate::parser::arc_parser;
 use crate::analyzer::arc_analyzer::{self, check_atom_consistency, list_energy};
@@ -16,13 +16,16 @@ fn main() {
         .version("0.2.0")
         .author("Lipid<23110220057@m.fudan.edu.cn>")
         .about("parses .arc file")
-        .arg(Arg::new("file")
-            .value_parser(value_parser!(String))
-            .action(ArgAction::Set)
-            .required(true)
+            .arg(Arg::new("file")
+                .value_parser(value_parser!(String))
+                .action(ArgAction::Set)
                 .short('f')
                 .long("file")
                 .help("target .arc file"))
+            .arg(Arg::new("check")
+                .long("check")
+                .action(clap::ArgAction::SetTrue)
+                .help("set this to check if the computation result is valid"))
             .arg(Arg::new("minimum")
                 .short('m')
                 .long("minimum")
@@ -62,6 +65,7 @@ fn main() {
     // determine the file path: default is test.arc, can be specified by -f myfile.arc
     let default_file = "test.arc".to_string();
     let file = matches.get_one("file").unwrap_or(&default_file);
+    let check_flag = matches.get_flag("check");
     println!("The file passed is: {}", file);
     //set flags from command line arguments
     let minimum_flag = matches.get_flag("minimum");
@@ -70,12 +74,27 @@ fn main() {
     let energy_list_flag = matches.get_flag("energy_list");
     let extract_minimum_flag = matches.get_flag("extract_minimum");
     let rearrange_target = matches.get_one::<String>("rearrange_atoms");
-    //let scale:Option<Vec<f64>> = matches.get_many("scale_crystal").copied().collect();
     let scale: Option<Vec<f64>> = matches.get_many("scale_crystal")
                                     .map(|v| v.copied().collect());
     //read the arc file
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
+    if check_flag{
+        let structures = match arc_parser::read_file_quick("Badstr.arc".to_owned()) {
+            Ok(blocks) => blocks,
+            Err(error) =>{
+                panic!("{}", error);
+            }
+        };
+        let unconverged_number = arc_parser::count_lines_with_text("lasp.out", "Unknown/not converged structure").unwrap();
+        if structures.len() >= 3 || unconverged_number >= 3{
+            println!("{}","this result might be unreliable!".red());
+            println!("structure in Badstr.arc: {}",structures.len());
+            println!("unconverged iterations in lasp.out: {}", unconverged_number);
+            return;
+        }
+
+    }
     let structures:Vec<StructureBlock> = match arc_parser::read_file(file.to_string()){
         Ok(blocks) => blocks,
         Err(error) =>{

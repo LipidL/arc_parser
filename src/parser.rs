@@ -194,6 +194,82 @@ pub mod arc_parser{
                 }
             }
         }
-        return Ok(blocks);
+        Ok(blocks)
+    }
+    /**
+     read target .arc file and parse block information.
+     only parse cell information, energy information, don't parse atom information
+     return a vector of blocks found in the .arc file
+     */
+    pub fn read_file_quick(filepath: String) -> io::Result<Vec<StructureBlock>>
+    {
+        //generate a file reader
+        let path = Path::new(&filepath);
+        let file = File::open(path)?;
+        let reader = io::BufReader::new(file);
+        //initialize block vector and current block
+        let mut blocks:Vec<StructureBlock> = Vec::new();
+        let mut current_block: Option<StructureBlock> = None;
+        //compile necessary regex
+        let block_header_parser = BlockHeaderParser::new();
+        let cell_data_parser = CellDataParser::new();
+        //read the file line by line
+        for line in reader.lines(){
+            //handle cases of io error
+            let line = line?;
+            //check if the line is a block header
+            let header_parse_result = block_header_parser.parse_block_header(&line);
+            if let Some(header_info) = header_parse_result{
+                //if so, should initialize a new block
+                current_block = Some(StructureBlock { 
+                    number: header_info.0,
+                    energy: header_info.2,
+                    symmetry: header_info.3,
+                    crystal: CrystalInfo{
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                        alpha: 0.0,
+                        beta: 0.0,
+                        gamma: 0.0
+                    },
+                    atoms: Vec::new()
+                });
+            }
+            else if line == "end"{
+                //if current line is an end, should push current block to block vector
+                if let Some(block) = current_block.take(){
+                    blocks.push(block);
+                }
+                //initialize current block again
+                current_block = None;
+            }
+            //check if the line is a cell information line
+            let crystal_parse_result = cell_data_parser.parse_cell_info(&line);
+            //if so, should set the block's crystal info
+            if let Some(crystal) = crystal_parse_result{
+                if let Some(block) = current_block.as_mut(){
+                    block.set_crystal_info(crystal);
+                }
+            }
+        }
+        Ok(blocks)
+    }
+    /**
+    counts lines in a file that contains specific text
+    like `grep text file | wc -l does.` does in shell.
+     */
+    pub fn count_lines_with_text(file_path: &str, test: &str) -> io::Result<usize>{
+        let path = Path::new(file_path);
+        let file = File::open(&path)?;
+        let reader = io::BufReader::new(file);
+        let mut count = 0;
+        for line in reader.lines() {
+            let line = line?;
+            if line.contains(test){
+                count += 1;
+            }
+        }
+        Ok(count)
     }
 }
