@@ -25,7 +25,7 @@ fn main() {
             .arg(Arg::new("check")
                 .long("check")
                 .action(clap::ArgAction::SetTrue)
-                .help("set this to check if the computation result is valid"))
+                .help("set this to check if the computation result is valid. If the result is invalid, unconverged structures will be written to unconverged.arc"))
             .arg(Arg::new("minimum")
                 .short('m')
                 .long("minimum")
@@ -76,27 +76,45 @@ fn main() {
     let rearrange_target = matches.get_one::<String>("rearrange_atoms");
     let scale: Option<Vec<f64>> = matches.get_many("scale_crystal")
                                     .map(|v| v.copied().collect());
-    //read the arc file
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
+    //check if the result is reliable
     if check_flag{
-        let structures = match arc_parser::read_file_quick("Badstr.arc".to_owned()) {
+        let structures = match arc_parser::read_file("Badstr.arc".to_owned()) {
             Ok(blocks) => blocks,
             Err(error) =>{
                 panic!("{}", error);
             }
         };
-        let unconverged_number = arc_parser::count_lines_with_text("lasp.out", "Unknown/not converged structure").unwrap();
-        if structures.len() >= 3 || unconverged_number >= 3{
+        let unconverged_index = arc_parser::find_unconverged_strucutres().unwrap();
+        if structures.len() >= 3 || unconverged_index.len() >= 3{
             println!("{}","this result might be unreliable!".red());
             println!("structure in Badstr.arc: {}",structures.len());
-            println!("unconverged iterations in lasp.out: {}", unconverged_number);
+            println!("unconverged iterations in lasp.out: {}", unconverged_index.len());
+            println!("finding unconverged strucutres");
+            let all_strucutres = match arc_parser::read_file("all.arc".to_owned()){
+                Ok(blocks) => blocks,
+                Err(error) => {
+                    panic!("{}", error);
+                }
+            };
+            let mut unconverged_structure: Vec<StructureBlock> = Vec::new();
+            for i in unconverged_index{
+                for structure in &all_strucutres{
+                    if structure.number == i {
+                        unconverged_structure.push(structure.clone());
+                    }
+                }
+            }
+            arc_parser::write_to_file(unconverged_structure, String::from("unconverged.arc")).unwrap();
+            println!("the unconverged structures have been written to unconverged.arc")
         }
         else {
             println!("{}","this result might be reliable!".green());
         }
         return;
     }
+    //read the arc file
     let structures:Vec<StructureBlock> = match arc_parser::read_file(file.to_string()){
         Ok(blocks) => blocks,
         Err(error) =>{

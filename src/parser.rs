@@ -3,7 +3,7 @@ pub mod arc_parser{
     use crate::modules::structures::{Atom, StructureBlock, Coordinate, CrystalInfo};
     use std::fs::File;
     use std::path::Path;
-    use std::io::{self, BufRead};
+    use std::io::{self, BufRead, Error, Write};
     use regex::Regex;
 
     /**
@@ -198,79 +198,77 @@ pub mod arc_parser{
         Ok(blocks)
     }
     /**
-     read target .arc file and parse block information.
-     only parse cell information, energy information, don't parse atom information
-     return a vector of blocks found in the .arc file
+    an encapsulation of regex to parse lasp.out file
      */
-    pub fn read_file_quick(filepath: String) -> io::Result<Vec<StructureBlock>>
-    {
-        //generate a file reader
-        let path = Path::new(&filepath);
-        let file = File::open(path)?;
-        let reader = io::BufReader::new(file);
-        //initialize block vector and current block
-        let mut blocks:Vec<StructureBlock> = Vec::new();
-        let mut current_block: Option<StructureBlock> = None;
-        //compile necessary regex
-        let block_header_parser = BlockHeaderParser::new();
-        let cell_data_parser = CellDataParser::new();
-        //read the file line by line
-        for line in reader.lines(){
-            //handle cases of io error
-            let line = line?;
-            //check if the line is a block header
-            let header_parse_result = block_header_parser.parse_block_header(&line);
-            if let Some(header_info) = header_parse_result{
-                //if so, should initialize a new block
-                current_block = Some(StructureBlock { 
-                    number: header_info.0,
-                    energy: header_info.2,
-                    symmetry: header_info.3,
-                    crystal: CrystalInfo{
-                        x: 0.0,
-                        y: 0.0,
-                        z: 0.0,
-                        alpha: 0.0,
-                        beta: 0.0,
-                        gamma: 0.0
-                    },
-                    atoms: Vec::new()
-                });
-            }
-            else if line == "end"{
-                //if current line is an end, should push current block to block vector
-                if let Some(block) = current_block.take(){
-                    blocks.push(block);
-                }
-                //initialize current block again
-                current_block = None;
-            }
-            //check if the line is a cell information line
-            let crystal_parse_result = cell_data_parser.parse_cell_info(&line);
-            //if so, should set the block's crystal info
-            if let Some(crystal) = crystal_parse_result{
-                if let Some(block) = current_block.as_mut(){
-                    block.set_crystal_info(crystal);
-                }
-            }
-        }
-        Ok(blocks)
+    pub struct LaspOutParser{
+        re:Regex,
     }
+    impl LaspOutParser{
+        fn new() -> Self{
+            let lasp_out_parser = Regex::new(r"^Str symm and Q\s+(?P<num>\d+)").unwrap();
+            Self { re: lasp_out_parser }
+        }
+
+        /**
+        match lasp.out output information
+         */
+        fn parse(&self, input:&str) -> Option<u64>{
+            if let Some(captures) = self.re.captures(input){
+                let number = captures.name("num").unwrap().as_str().parse().unwrap();
+                return Some(number);
+            }
+            None
+        }
+    }
+
     /**
-    counts lines in a file that contains specific text
-    like `grep text file | wc -l does.` does in shell.
+    check lasp.out file to find all unconverged structures
+    returns: Vec<u64>, a vector containing the position in all.arc for unconverged strucutres
      */
-    pub fn count_lines_with_text(file_path: &str, test: &str) -> io::Result<usize>{
-        let path = Path::new(file_path);
-        let file = File::open(&path)?;
+    pub fn find_unconverged_strucutres() -> io::Result<Vec<u64>>{
+        let mut unconverged_strucutres: Vec<u64> = Vec::new();
+        let file = File::open(Path::new("lasp.out"))?;
         let reader = io::BufReader::new(file);
-        let mut count = 0;
-        for line in reader.lines() {
+        let mut previous_line = String::new();
+        let lasp_out_parser = LaspOutParser::new();
+        for line in reader.lines(){
             let line = line?;
-            if line.contains(test){
-                count += 1;
+            if line.contains("not converged"){
+                let number = lasp_out_parser.parse(&previous_line);
+                if let Some(number) = number{
+                    unconverged_strucutres.push(number.try_into().unwrap());
+                }
+                else{
+                    eprintln!("unseen situation!");
+                    eprintln!("{}", previous_line);
+                    eprintln!("{}",line);
+                }        
+            }
+            else {
+                previous_line = line.clone();
             }
         }
-        Ok(count)
+        Ok(unconverged_strucutres)
+    }
+
+    /**
+    write some blocks into a file
+     */
+    pub fn write_to_file(structures:Vec<StructureBlock>, path: String) -> Result<(), Error>
+    {
+        let mut file = File::create(path)?;
+        writeln!(file, "!BIOSYM archive 2")?;
+        writeln!(file, "PBC=ON")?;
+        for block in structures.iter(){
+            writeln!(file, "{: >28} Energy {: >10} {: >16.4} {: >18.6} {: >10}", "", 0, 0.0, block.energy, block.symmetry)?;
+            writeln!(file, "!DATE")?;
+            writeln!(file, "PBC {: >14.8} {: >14.8} {: >14.8} {: >14.8} {: >14.8} {: >14.8}", block.crystal.x, block.crystal.y, block.crystal.z, block.crystal.alpha, block.crystal.beta, block.crystal.gamma)?;
+            for (i, atom) in block.atoms.iter().enumerate() {
+                writeln!(file, "{: <5} {: >15.9} {: >15.9} {: >15.9} CORE {: >5} {: >1} {: <3} {: <5} {: <6} {: >5}", atom.element, (atom.coordinate.0), (atom.coordinate.1), (atom.coordinate.2), i+1, "", atom.element, atom.element, 0.0, i+1)?;
+            }
+            writeln!(file, "end")?;
+            writeln!(file, "end")?;
+        }
+        Ok(())
     }
 }
