@@ -6,7 +6,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/${workspaceFolderBasename}",
-            "args": ["-f","all.arc","-mce"],
+            "args": ["-f","water_cross.arc","--angle"],
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "rust: cargo build"
         }

@@ -17,6 +17,17 @@ pub mod structures {
         pub element: String,
         pub coordinate: Coordinate,
     }
+    impl Atom{
+        /**
+        calculate the distance between this atom and another atom
+         */
+        pub fn distance(&self, atom: &Atom) -> f64{
+            let distance = ((self.coordinate.0 - atom.coordinate.0).powf(2.0)
+                            + (self.coordinate.1 - atom.coordinate.1).powf(2.0)
+                            + (self.coordinate.2 - atom.coordinate.2).powf(2.0)).powf(0.5);
+            distance
+        }
+    }
 
     /// parameters of a cell
     #[derive(Clone)] 

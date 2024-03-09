@@ -3,7 +3,7 @@ pub mod parser;
 mod analyzer;
 
 use clap::{value_parser, Arg, ArgAction, Command};
-use crate::modules::structures::StructureBlock;
+use crate::modules::structures::{Atom, Coordinate, StructureBlock};
 use crate::parser::arc_parser;
 use crate::analyzer::arc_analyzer::{self, check_atom_consistency, list_energy};
 use colored::*;
@@ -61,6 +61,10 @@ fn main() {
                 .value_parser(value_parser!(f64))
                 .required(false)
                 .help("scale the minimum structure's crystal by given scale"))
+            .arg(Arg::new("calculate_angle")
+                .long("angle")
+                .action(clap::ArgAction::SetTrue)
+                .help("extract the minimum structure to minimum.arc"))
             .get_matches();
     // determine the file path: default is test.arc, can be specified by -f myfile.arc
     let default_file = "test.arc".to_string();
@@ -76,6 +80,7 @@ fn main() {
     let rearrange_target = matches.get_one::<String>("rearrange_atoms");
     let scale: Option<Vec<f64>> = matches.get_many("scale_crystal")
                                     .map(|v| v.copied().collect());
+    let angle_flag = matches.get_flag("calculate_angle");
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
     //check if the result is reliable
@@ -214,5 +219,14 @@ fn main() {
             println!("minimum structure has been scaled to scaled.arc.")
         }
     }
-
+    if angle_flag{
+        for block in structures{
+            let central_atom = Atom{element: "O".to_owned(), coordinate: Coordinate(0.0, 0.0, 0.0)};
+            let out_atom = Atom{element: "H".to_owned(), coordinate: Coordinate(0.0, 0.0, 0.0)};
+            let surrounding_atoms = vec![out_atom.clone(), out_atom.clone()];
+            let distances = vec![1.05, 1.05];
+            let angles = arc_parser::calculate_bond_angle(block, central_atom, surrounding_atoms, distances);
+            println!("{:#?}", angles);
+        }
+    }
 }

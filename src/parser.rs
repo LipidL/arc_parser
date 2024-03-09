@@ -271,4 +271,78 @@ pub mod arc_parser{
         }
         Ok(())
     }
+
+    /**
+     calculate all bond angle of a given atom and surrounding other atoms with given bond length
+     return a vector containing all bond angles
+     */
+    pub fn calculate_bond_angle(structures:StructureBlock, central_atom: Atom, surrounding_atoms: Vec<Atom>, distances: Vec<f64>) -> Vec<f64>{
+        let mut bond_angles: Vec<f64> = Vec::new();
+        let atom_list = structures.atoms.clone();
+        for atom in structures.atoms{
+            if atom.element == central_atom.element{
+                for (i, out_atom) in atom_list.iter().enumerate(){
+                    let out_atom = out_atom.clone();
+                    let a = out_atom.clone();
+                    if surrounding_atoms[0].element == atom.element || (out_atom.distance(&atom) - distances[0]).abs() <= 0.1{
+                        for (_j, out_atom_2) in atom_list[i+1..].iter().enumerate(){
+                            let out_atom_2 = out_atom_2.clone();
+                            let c = out_atom_2.clone();
+                            if surrounding_atoms[1].element == atom.element || (out_atom_2.distance(&atom) - distances[1]).abs() <= 0.1{                                
+                                let b = atom.clone();                               
+                                bond_angles.push(bond_angle(&a, &b, &c));
+                                break;
+                            }
+                        }
+
+                        for (_j, out_atom_2) in atom_list.iter().enumerate(){
+                            let mut out_atom_2 = out_atom_2.clone();
+                            out_atom_2.coordinate.0 -= structures.crystal.x;
+                            let c = out_atom_2.clone();
+                            let b = atom.clone(); 
+                            if surrounding_atoms[1].element != out_atom_2.element{
+                                continue;
+                            }
+                            if (out_atom_2.distance(&atom) - distances[1]).abs() <= 0.1{
+                                bond_angles.push(bond_angle(&a, &b, &c));
+                                break
+                            }
+                            out_atom_2.coordinate.0 += structures.crystal.x;
+                            out_atom_2.coordinate.1 -= structures.crystal.y;
+                            let c = out_atom_2.clone(); 
+                            if (out_atom_2.distance(&atom) - distances[1]).abs() <= 0.1{
+                                bond_angles.push(bond_angle(&a, &b, &c));
+                                break;
+                            }
+                            out_atom_2.coordinate.1 += structures.crystal.y; 
+                            out_atom_2.coordinate.2 += structures.crystal.z; 
+                            let c = out_atom_2.clone(); 
+                            if (out_atom_2.distance(&atom) - distances[1]).abs() <= 0.1{
+                                bond_angles.push(bond_angle(&a, &b, &c));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        bond_angles
+    }
+
+    pub fn bond_angle(a: &Atom, b: &Atom, c: &Atom) -> f64{
+        use std::f64::consts::PI;
+        let ab = (a.coordinate.0 - b.coordinate.0, a.coordinate.1 - b.coordinate.1, a.coordinate.2 - b.coordinate.2);
+        let bc = (c.coordinate.0 - b.coordinate.0, c.coordinate.1 - b.coordinate.1, c.coordinate.2 - b.coordinate.2);
+    
+        let dot_product = ab.0 * bc.0 + ab.1 * bc.1 + ab.2 * bc.2;
+        let mag_ab = (ab.0.powi(2) + ab.1.powi(2) + ab.2.powi(2)).sqrt();
+        let mag_bc = (bc.0.powi(2) + bc.1.powi(2) + bc.2.powi(2)).sqrt();
+    
+        let cos_theta = dot_product / (mag_ab * mag_bc);
+        let theta_rad = cos_theta.acos();
+    
+        let theta_deg = theta_rad * (180.0 / PI);
+    
+        theta_deg
+    }
 }
