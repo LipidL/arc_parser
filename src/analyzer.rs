@@ -141,7 +141,18 @@ pub mod arc_analyzer{
         new_plane
     }
 
-    pub fn calculate_interplanar_spacing(structure:Vec<Atom>, a1:usize, a2:usize, a3:usize) -> Result<f64, &'static str>{
+    fn calculate_plain_distance(plane1:&Plane, plane2:&Plane) -> Result<f64, &'static str> {
+        // Check if the planes are parallel
+        if plane1.a / plane2.a == plane1.b / plane2.b && plane1.b / plane2.b == plane1.c / plane2.c {
+            // Calculate the distance between the planes
+            let distance = (plane1.d - plane2.d).abs() / f64::sqrt(plane1.a.powi(2) + plane1.b.powi(2) + plane1.c.powi(2));
+            Ok(distance)
+        } else {
+            Err("The planes are not parallel.")
+    }
+    }
+
+    pub fn calculate_interplanar_spacing(structure:&Vec<Atom>, a1:usize, a2:usize, a3:usize) -> Result<Vec<f64>, &'static str>{
         // check if the provided atoms are present
         if a1 > structure.len() || a2 > structure.len() || a3 > structure.len() {
             return  Err("Atom number larger than lenth of structure");
@@ -179,6 +190,16 @@ pub mod arc_analyzer{
                 i += 1;
             }
         }
-        Err("Atom number larger than lenth of structure")
+
+        // calculate surface distances
+        let mut distances = Vec::new();
+
+        for i in 0..planes.len()-1 {
+            match calculate_plain_distance(&planes[i], &planes[i+1]) {
+                Ok(distance) => distances.push(distance),
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(distances)
     }
 }
