@@ -106,4 +106,26 @@ pub mod arc_analyzer{
     {
         block.atoms.sort_by(compare);
     }
+
+    struct Plane {
+        a: f64,
+        b: f64,
+        c: f64,
+        d: f64,
+    }
+
+    fn calculate_plane(a1:Atom, a2:Atom, a3:Atom) -> Result<Plane, &'static str>{
+        let v1 = &a2 - &a1;
+        let v2 = &a3 - &a1;
+
+        let a = v1.1 * v2.2 - v1.2 * v2.1;
+        let b = v1.2 * v2.0 - v1.0 * v2.2;
+        let c = v1.0 * v2.1 - v1.1 * v2.0;
+        if a == 0.0 && b == 0.0 && c == 0.0{
+            Err("The points are collinear")
+        } else {
+            let d = -(a * a1.coordinate.0 + b * a1.coordinate.1 + c * a1.coordinate.2);
+            Ok(Plane{a, b, c, d})
+        }
+    }
 }
