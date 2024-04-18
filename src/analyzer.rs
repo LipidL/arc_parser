@@ -1,6 +1,6 @@
 pub mod arc_analyzer{
     //! necessary functions for analyzing StructureBlock
-    use std::cmp::Ordering;
+    use std::{clone, cmp::Ordering};
 
     use crate::modules::structures::{ StructureBlock, Atom};
     /**
@@ -107,6 +107,7 @@ pub mod arc_analyzer{
         block.atoms.sort_by(compare);
     }
 
+    #[derive(Clone)]
     struct Plane {
         a: f64,
         b: f64,
@@ -114,9 +115,9 @@ pub mod arc_analyzer{
         d: f64,
     }
 
-    fn calculate_plane(a1:Atom, a2:Atom, a3:Atom) -> Result<Plane, &'static str>{
-        let v1 = &a2 - &a1;
-        let v2 = &a3 - &a1;
+    fn calculate_plane(a1:&Atom, a2:&Atom, a3:&Atom) -> Result<Plane, &'static str>{
+        let v1 = a2 - a1;
+        let v2 = a3 - a1;
 
         let a = v1.1 * v2.2 - v1.2 * v2.1;
         let b = v1.2 * v2.0 - v1.0 * v2.2;
@@ -127,5 +128,57 @@ pub mod arc_analyzer{
             let d = -(a * a1.coordinate.0 + b * a1.coordinate.1 + c * a1.coordinate.2);
             Ok(Plane{a, b, c, d})
         }
+    }
+
+    fn calculate_b(plane:&Plane, atom:&Atom) -> Plane{
+        let coordinate = &atom.coordinate;
+        let new_plane = Plane{
+            a: plane.a,
+            b: plane.b,
+            c: plane.c,
+            d: -(plane.a * coordinate.0 + plane.b * coordinate.1  + plane.c + coordinate.2)
+        };
+        new_plane
+    }
+
+    pub fn calculate_interplanar_spacing(structure:Vec<Atom>, a1:usize, a2:usize, a3:usize) -> Result<f64, &'static str>{
+        // check if the provided atoms are present
+        if a1 > structure.len() || a2 > structure.len() || a3 > structure.len() {
+            return  Err("Atom number larger than lenth of structure");
+        }
+        // calculate the base plain
+        let plane = calculate_plane(&structure[a1], &structure[a2], &structure[a3]).unwrap();
+        // calculate planes that atoms sit on 
+        let mut planes:Vec<Plane> = Vec::new();
+        for atom in structure{
+            let new_plane = calculate_b(&plane, &atom);
+            planes.push(new_plane);
+        }
+        // Sort the planes vector based on the d value
+        planes.sort_by(|a, b| a.d.partial_cmp(&b.d).unwrap());
+
+        let threshold = 0.01; // Change this to your desired threshold
+
+        // Merge the elements of d difference less than the threshold
+        let mut i = 0;
+        while i < planes.len() - 1 {
+            if planes[i + 1].d - planes[i].d < threshold {
+                // Merge the two planes here
+                // This is a simple example where we average the a, b, c, and d values
+                let merged_plane = Plane {
+                    a: (planes[i].a + planes[i + 1].a) / 2.0,
+                    b: (planes[i].b + planes[i + 1].b) / 2.0,
+                    c: (planes[i].c + planes[i + 1].c) / 2.0,
+                    d: (planes[i].d + planes[i + 1].d) / 2.0,
+                };
+        
+                // Replace the current plane with the merged one and remove the next plane
+                planes[i] = merged_plane;
+                planes.remove(i + 1);
+            } else {
+                i += 1;
+            }
+        }
+        Err("Atom number larger than lenth of structure")
     }
 }
