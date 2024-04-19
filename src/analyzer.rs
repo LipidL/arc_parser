@@ -1,6 +1,6 @@
 pub mod arc_analyzer{
     //! necessary functions for analyzing StructureBlock
-    use std::{clone, cmp::Ordering};
+    use std::cmp::Ordering;
 
     use crate::modules::structures::{ StructureBlock, Atom};
     /**
@@ -168,12 +168,16 @@ pub mod arc_analyzer{
         // Sort the planes vector based on the d value
         planes.sort_by(|a, b| a.d.partial_cmp(&b.d).unwrap());
 
-        let threshold = 0.01; // Change this to your desired threshold
+        let threshold = 0.3; // Change this to your desired threshold
 
         // Merge the elements of d difference less than the threshold
         let mut i = 0;
         while i < planes.len() - 1 {
-            if planes[i + 1].d - planes[i].d < threshold {
+            let distnace = match calculate_plain_distance(&planes[i], &planes[i+1]) {
+                Ok(distance) => distance,
+                Err(e) => return Err(e),
+            };
+            if distnace < threshold {
                 // Merge the two planes here
                 // This is a simple example where we average the a, b, c, and d values
                 let merged_plane = Plane {
