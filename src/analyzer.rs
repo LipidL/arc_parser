@@ -3,6 +3,7 @@ pub mod arc_analyzer{
     use std::cmp::Ordering;
 
     use crate::modules::structures::{ StructureBlock, Atom};
+    
     /**
     find the minimum energy of a given vector of StrucutreBlock
     return some(f64) if minimum found
