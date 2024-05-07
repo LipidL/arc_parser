@@ -223,7 +223,7 @@ pub mod arc_parser{
 
     /**
     check lasp.out file to find all unconverged structures
-    returns: Vec<u64>, a vector containing the position in all.arc for unconverged strucutres
+    returns: `Vec<u64>`, a vector containing the position in all.arc for unconverged strucutres
      */
     pub fn find_unconverged_strucutres() -> io::Result<Vec<u64>>{
         let mut unconverged_strucutres: Vec<u64> = Vec::new();

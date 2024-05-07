@@ -19,7 +19,7 @@ pub mod arc_analyzer{
      count the number of blocks in the file
 
      returns:
-        + count:u64, the number of blocks in a Vec<StructureBlock>
+        + count:u64, the number of blocks in a `Vec<StructureBlock>`
      */
     pub fn count_strucutre_block(blocks: &Vec<StructureBlock>) -> u64{
         blocks.len() as u64
@@ -88,22 +88,32 @@ pub mod arc_analyzer{
     return the minimum structure block of the given `Vec<StructureBlock>`
 
     args:
-        + blocks:&Vec<StructureBlock>
+        + `blocks:&Vec<StructureBlock>`
 
     returns:
-        + Option<StructureBlock>, Some(StructureBlock) if the minimum found; None if no minumum found.
+        + `Option<StructureBlock>`, `Some(StructureBlock)` if the minimum found; `None` if no minumum found.
      */
     pub fn extract_minimum(blocks: &Vec<StructureBlock>) -> Option<StructureBlock> {
         blocks.iter().min_by(|a, b| a.energy.partial_cmp(&b.energy).unwrap()).cloned()
     }
 
     /**
-    rearrange the atoms in a Vec<StructureBlock>
+    rearrange the atoms in a `Vec<StructureBlock>`
      */
     pub fn rearrange_atoms<F>(block: &mut StructureBlock, compare: F)
     where
         F: Fn(&Atom, &Atom) -> Ordering,
     {
         block.atoms.sort_by(compare);
+    }
+
+    /**
+     calculate distance between two atoms
+
+     $distance = \sqrt{(x_1-x_2)^2+(y_1-y_2)^2+(z_1-z_2)^2}$
+     */
+    pub fn distance(atom1: &Atom, atom2: &Atom) -> f64
+    {
+        ((atom1.coordinate.0-atom2.coordinate.0).powi(2) + (atom1.coordinate.1-atom2.coordinate.1).powi(2) + (atom1.coordinate.2-atom2.coordinate.2).powi(2)).sqrt()
     }
 }
