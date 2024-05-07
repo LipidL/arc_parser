@@ -61,6 +61,10 @@ fn main() {
                 .value_parser(value_parser!(f64))
                 .required(false)
                 .help("scale the minimum structure's crystal by given scale"))
+            .arg(Arg::new("coordination_number")
+                .long("coordination")
+                .action(clap::ArgAction::SetTrue)
+                .help("calculates coordination number of the atoms in the first strucutre"))       
             .get_matches();
     // determine the file path: default is test.arc, can be specified by -f myfile.arc
     let default_file = "test.arc".to_string();
@@ -76,6 +80,7 @@ fn main() {
     let rearrange_target = matches.get_one::<String>("rearrange_atoms");
     let scale: Option<Vec<f64>> = matches.get_many("scale_crystal")
                                     .map(|v| v.copied().collect());
+    let coordination_flag = matches.get_flag("coordination_number");
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
     //check if the result is reliable
@@ -212,6 +217,14 @@ fn main() {
             }
             new_block.write_to_file(String::from("scaled.arc")).unwrap();
             println!("minimum structure has been scaled to scaled.arc.")
+        }
+    }
+    // calculate coordination number
+    if coordination_flag{
+        let minimum_block = arc_analyzer::extract_minimum(&structures).unwrap();
+        let coord_vec = arc_analyzer::calc_coordination(&minimum_block);
+        for i in 0..coord_vec.len(){
+            println!("{}, {}",minimum_block.atoms[i].element, coord_vec[i]);
         }
     }
 

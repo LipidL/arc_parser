@@ -112,8 +112,32 @@ pub mod arc_analyzer{
 
      $distance = \sqrt{(x_1-x_2)^2+(y_1-y_2)^2+(z_1-z_2)^2}$
      */
-    pub fn distance(atom1: &Atom, atom2: &Atom) -> f64
+    fn distance(atom1: &Atom, atom2: &Atom) -> f64
     {
         ((atom1.coordinate.0-atom2.coordinate.0).powi(2) + (atom1.coordinate.1-atom2.coordinate.1).powi(2) + (atom1.coordinate.2-atom2.coordinate.2).powi(2)).sqrt()
+    }
+
+    /**
+     calculate coordination number of atoms in the 
+
+     # TODO
+     + implement support on multiple elements
+     + implement changable threshold
+     + implement atom radious table for threshold calculation
+     */
+    pub fn calc_coordination(block:&StructureBlock) -> Vec<u64>
+    {
+        let mut coordination = vec![0; block.atoms.len()];
+        let threshold = 2.9; // table of atom radious haven't be implemented
+        for i in 0..block.atoms.len(){
+            for j in i+1..block.atoms.len(){
+                let distance = distance(&block.atoms[i], &block.atoms[j]);
+                if distance <= threshold{
+                    coordination[i] += 1;
+                    coordination[j] += 1;
+                }
+            }
+        }
+        coordination
     }
 }
