@@ -128,7 +128,7 @@ pub mod arc_analyzer{
     pub fn calc_coordination(block:&StructureBlock) -> Vec<u64>
     {
         let mut coordination = vec![0; block.atoms.len()];
-        let threshold = 2.9; // table of atom radious haven't be implemented
+        let threshold = 2.8; // table of atom radious haven't be implemented
         for i in 0..block.atoms.len(){
             for j in i+1..block.atoms.len(){
                 let distance = distance(&block.atoms[i], &block.atoms[j]);
