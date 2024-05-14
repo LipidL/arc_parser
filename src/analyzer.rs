@@ -108,7 +108,9 @@ pub mod arc_analyzer{
     }
 
     #[derive(Clone)]
+    #[derive(Debug)]
     struct Plane {
+        // The equation of the plane is ax + by + cz + d = 0
         a: f64,
         b: f64,
         c: f64,
@@ -136,9 +138,15 @@ pub mod arc_analyzer{
             a: plane.a,
             b: plane.b,
             c: plane.c,
-            d: -(plane.a * coordinate.0 + plane.b * coordinate.1  + plane.c + coordinate.2)
+            d: -(plane.a * coordinate.0 + plane.b * coordinate.1  + plane.c * coordinate.2)
         };
         new_plane
+    }
+
+    fn calculate_distance_from_plane(plane:&Plane, point:&Atom) -> f64{
+        let coordinate = &point.coordinate;
+        let distance = (plane.a * coordinate.0 + plane.b * coordinate.1 + plane.c * coordinate.2 + plane.d) / f64::sqrt(plane.a.powi(2) + plane.b.powi(2) + plane.c.powi(2));
+        distance.abs()
     }
 
     fn calculate_plain_distance(plane1:&Plane, plane2:&Plane) -> Result<f64, &'static str> {
@@ -161,39 +169,30 @@ pub mod arc_analyzer{
         let plane = calculate_plane(&structure[a1], &structure[a2], &structure[a3]).unwrap();
         // calculate planes that atoms sit on 
         let mut planes:Vec<Plane> = Vec::new();
+        planes.push(plane.clone());
+        let in_plane_threshold = 0.1;
         for atom in structure{
+            let mut distances:Vec<f64> = Vec::new();
+            for plane in &planes{
+                let distance = calculate_distance_from_plane(plane, &atom);
+                distances.push(distance);
+            }
+            let min_result = distances.iter().min_by(|a, b| a.partial_cmp(b).unwrap());
+            if let Some(min) = min_result{
+                if *min > in_plane_threshold{
+                    let new_plane = calculate_b(&plane, &atom);
+                    planes.push(new_plane);
+                    continue;
+                }
+            }
+            else{
             let new_plane = calculate_b(&plane, &atom);
             planes.push(new_plane);
+            }
         }
         // Sort the planes vector based on the d value
         planes.sort_by(|a, b| a.d.partial_cmp(&b.d).unwrap());
-
-        let threshold = 0.3; // Change this to your desired threshold
-
-        // Merge the elements of d difference less than the threshold
-        let mut i = 0;
-        while i < planes.len() - 1 {
-            let distnace = match calculate_plain_distance(&planes[i], &planes[i+1]) {
-                Ok(distance) => distance,
-                Err(e) => return Err(e),
-            };
-            if distnace < threshold {
-                // Merge the two planes here
-                // This is a simple example where we average the a, b, c, and d values
-                let merged_plane = Plane {
-                    a: (planes[i].a + planes[i + 1].a) / 2.0,
-                    b: (planes[i].b + planes[i + 1].b) / 2.0,
-                    c: (planes[i].c + planes[i + 1].c) / 2.0,
-                    d: (planes[i].d + planes[i + 1].d) / 2.0,
-                };
-        
-                // Replace the current plane with the merged one and remove the next plane
-                planes[i] = merged_plane;
-                planes.remove(i + 1);
-            } else {
-                i += 1;
-            }
-        }
+        println!("{:?}", planes.len());
 
         // calculate surface distances
         let mut distances = Vec::new();

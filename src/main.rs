@@ -224,7 +224,8 @@ fn main() {
     }
 
     if let Some(atoms) = surface{
-        let spacing = arc_analyzer::calculate_interplanar_spacing(&structures[0].atoms, atoms[0], atoms[1], atoms[2]).unwrap();
+        let minimum = arc_analyzer::extract_minimum(&structures).unwrap();
+        let spacing = arc_analyzer::calculate_interplanar_spacing(&minimum.atoms, atoms[0], atoms[1], atoms[2]).unwrap();
         println!("distances are {:?}",spacing);
     }
 
