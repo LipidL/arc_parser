@@ -6,8 +6,8 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/${workspaceFolderBasename}",
-            "args": ["-f","100.arc","--surface","19","--surface","226","--surface","91"],
-            "cwd": "${workspaceRoot}",
+            "args": ["-f","small_Wulff_init.arc","--surface","85","--surface","86","--surface","167"],
+            "cwd": "${workspaceRoot}/test",
             "preLaunchTask": "rust: cargo build"
         }
     ]

@@ -151,13 +151,16 @@ pub mod arc_analyzer{
 
     fn calculate_plain_distance(plane1:&Plane, plane2:&Plane) -> Result<f64, &'static str> {
         // Check if the planes are parallel
-        if plane1.a / plane2.a == plane1.b / plane2.b && plane1.b / plane2.b == plane1.c / plane2.c {
+        let epsilon = 1e-5;
+
+        if ((plane1.a + epsilon) / (plane2.a + epsilon) - (plane1.b + epsilon) / (plane2.b + epsilon)).abs() <= 1e-5 
+            && ((plane1.b + epsilon) / (plane2.b + epsilon) - (plane1.c + epsilon) / (plane2.c + epsilon)).abs() <=1e-5 {
             // Calculate the distance between the planes
             let distance = (plane1.d - plane2.d).abs() / f64::sqrt(plane1.a.powi(2) + plane1.b.powi(2) + plane1.c.powi(2));
             Ok(distance)
         } else {
             Err("The planes are not parallel.")
-    }
+        }
     }
 
     pub fn calculate_interplanar_spacing(structure:&Vec<Atom>, a1:usize, a2:usize, a3:usize) -> Result<Vec<f64>, &'static str>{
