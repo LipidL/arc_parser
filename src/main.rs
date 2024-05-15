@@ -61,6 +61,12 @@ fn main() {
                 .value_parser(value_parser!(f64))
                 .required(false)
                 .help("scale the minimum structure's crystal by given scale"))
+            .arg(Arg::new("calculate_surface")
+                .long("surface")
+                .action(ArgAction::Append)
+                .value_parser(value_parser!(usize))
+                .required(false)
+                .help("calculate the surface distance of given 3 atoms"))
             .get_matches();
     // determine the file path: default is test.arc, can be specified by -f myfile.arc
     let default_file = "test.arc".to_string();
@@ -75,6 +81,8 @@ fn main() {
     let extract_minimum_flag = matches.get_flag("extract_minimum");
     let rearrange_target = matches.get_one::<String>("rearrange_atoms");
     let scale: Option<Vec<f64>> = matches.get_many("scale_crystal")
+                                    .map(|v| v.copied().collect());
+    let surface: Option<Vec<usize>> = matches.get_many("calculate_surface")
                                     .map(|v| v.copied().collect());
     let current_path = std::env::current_dir().unwrap();
     println!("The current directory is {}", current_path.display());
@@ -213,6 +221,12 @@ fn main() {
             new_block.write_to_file(String::from("scaled.arc")).unwrap();
             println!("minimum structure has been scaled to scaled.arc.")
         }
+    }
+
+    if let Some(atoms) = surface{
+        let minimum = arc_analyzer::extract_minimum(&structures).unwrap();
+        let spacing = arc_analyzer::calculate_interplanar_spacing(&minimum.atoms, atoms[0], atoms[1], atoms[2]).unwrap();
+        println!("distances are {:?}",spacing);
     }
 
 }

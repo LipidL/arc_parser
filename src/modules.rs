@@ -6,7 +6,7 @@ pub mod structures {
         Z
     }
 
-    use std::{fs::File, io::Error, io::Write};
+    use std::{fs::File, io::{Error, Write}, ops::Sub};
     #[derive(Clone)] 
     pub struct Coordinate(pub f64,pub f64,pub f64);
 
@@ -16,6 +16,17 @@ pub mod structures {
     pub struct Atom { 
         pub element: String,
         pub coordinate: Coordinate,
+    }
+
+    impl Sub for &Atom{
+        type Output = Coordinate;
+        fn sub(self, rhs: Self) -> Coordinate {
+            Coordinate{
+                0: self.coordinate.0 - rhs.coordinate.0,
+                1: self.coordinate.1 - rhs.coordinate.1,
+                2: self.coordinate.2 - rhs.coordinate.2
+            }
+        }
     }
 
     /// parameters of a cell

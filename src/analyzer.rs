@@ -106,4 +106,106 @@ pub mod arc_analyzer{
     {
         block.atoms.sort_by(compare);
     }
+
+    #[derive(Clone)]
+    #[derive(Debug)]
+    struct Plane {
+        // The equation of the plane is ax + by + cz + d = 0
+        a: f64,
+        b: f64,
+        c: f64,
+        d: f64,
+    }
+
+    fn calculate_plane(a1:&Atom, a2:&Atom, a3:&Atom) -> Result<Plane, &'static str>{
+        let v1 = a2 - a1;
+        let v2 = a3 - a1;
+
+        let a = v1.1 * v2.2 - v1.2 * v2.1;
+        let b = v1.2 * v2.0 - v1.0 * v2.2;
+        let c = v1.0 * v2.1 - v1.1 * v2.0;
+        if a == 0.0 && b == 0.0 && c == 0.0{
+            Err("The points are collinear")
+        } else {
+            let d = -(a * a1.coordinate.0 + b * a1.coordinate.1 + c * a1.coordinate.2);
+            Ok(Plane{a, b, c, d})
+        }
+    }
+
+    fn calculate_b(plane:&Plane, atom:&Atom) -> Plane{
+        let coordinate = &atom.coordinate;
+        let new_plane = Plane{
+            a: plane.a,
+            b: plane.b,
+            c: plane.c,
+            d: -(plane.a * coordinate.0 + plane.b * coordinate.1  + plane.c * coordinate.2)
+        };
+        new_plane
+    }
+
+    fn calculate_distance_from_plane(plane:&Plane, point:&Atom) -> f64{
+        let coordinate = &point.coordinate;
+        let distance = (plane.a * coordinate.0 + plane.b * coordinate.1 + plane.c * coordinate.2 + plane.d) / f64::sqrt(plane.a.powi(2) + plane.b.powi(2) + plane.c.powi(2));
+        distance.abs()
+    }
+
+    fn calculate_plain_distance(plane1:&Plane, plane2:&Plane) -> Result<f64, &'static str> {
+        // Check if the planes are parallel
+        let epsilon = 1e-5;
+
+        if ((plane1.a + epsilon) / (plane2.a + epsilon) - (plane1.b + epsilon) / (plane2.b + epsilon)).abs() <= 1e-5 
+            && ((plane1.b + epsilon) / (plane2.b + epsilon) - (plane1.c + epsilon) / (plane2.c + epsilon)).abs() <=1e-5 {
+            // Calculate the distance between the planes
+            let distance = (plane1.d - plane2.d).abs() / f64::sqrt(plane1.a.powi(2) + plane1.b.powi(2) + plane1.c.powi(2));
+            Ok(distance)
+        } else {
+            Err("The planes are not parallel.")
+        }
+    }
+
+    pub fn calculate_interplanar_spacing(structure:&Vec<Atom>, a1:usize, a2:usize, a3:usize) -> Result<Vec<f64>, &'static str>{
+        // check if the provided atoms are present
+        if a1 > structure.len() || a2 > structure.len() || a3 > structure.len() {
+            return  Err("Atom number larger than lenth of structure");
+        }
+        // calculate the base plain
+        let plane = calculate_plane(&structure[a1], &structure[a2], &structure[a3]).unwrap();
+        // calculate planes that atoms sit on 
+        let mut planes:Vec<Plane> = Vec::new();
+        planes.push(plane.clone());
+        let in_plane_threshold = 0.1;
+        for atom in structure{
+            let mut distances:Vec<f64> = Vec::new();
+            for plane in &planes{
+                let distance = calculate_distance_from_plane(plane, &atom);
+                distances.push(distance);
+            }
+            let min_result = distances.iter().min_by(|a, b| a.partial_cmp(b).unwrap());
+            if let Some(min) = min_result{
+                if *min > in_plane_threshold{
+                    let new_plane = calculate_b(&plane, &atom);
+                    planes.push(new_plane);
+                    continue;
+                }
+            }
+            else{
+            let new_plane = calculate_b(&plane, &atom);
+            planes.push(new_plane);
+            }
+        }
+        // Sort the planes vector based on the d value
+        planes.sort_by(|a, b| a.d.partial_cmp(&b.d).unwrap());
+        println!("{:?}", planes.len());
+
+        // calculate surface distances
+        let mut distances = Vec::new();
+
+        for i in 0..planes.len()-1 {
+            match calculate_plain_distance(&planes[i], &planes[i+1]) {
+                Ok(distance) => distances.push(distance),
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(distances)
+    }
 }

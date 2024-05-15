@@ -2,13 +2,23 @@
 arc_parser is a small program written in Rust that parses .arc files produced by the [LASP](http://www.lasphub.com/) program.
 
 ## Completed Functions
-+ Prints the minimum energy structures in the .arc file
++ Print the minimum energy structures in the .arc file
++ Count the structures in an .arc file
++ Identify duplicate minimum structures
++ Export the global minimum
++ List all energy of strucures
++ Rearrange atoms in a structure with X, Y or Z axis
++ Scale the crystal by X, Y or Z axis
++ Calculate interplanar spacing of given surface(specified by 3 atoms)
++ Check if the result of [LASP](http://www.lasphub.com/) program is valid
++ Extract unconverged [LASP](http://www.lasphub.com/) strucutres
 
 ## Functions in Progress
-+ Counts the structures in an .arc file
-+ Identifies duplicate minimum structures
-+ Exports the global minimum
-+ Displays the energy difference of various structures
++ Automatically analyze exposure of crystal surface
++ Analyze symmetry of structure
+
+
+
 
 ## Usage
 ### Basic Command
