@@ -83,3 +83,58 @@ pub mod structures {
         }
     }
 }
+
+pub mod periodic_table {
+    use std::{collections::HashMap, f64::NAN};
+
+    #[derive(Debug)]
+    pub struct Element {
+        pub name: String,
+        pub atomic_number: u64,
+        pub mass: f64,
+        pub valence_radius: f64,
+        pub valence_electrons: u32,
+        pub ion_radius: HashMap<i32, f64>,
+        pub atom_radius: f64, // in angstroms
+    }
+
+    pub struct PeriodicTable {
+        elements: HashMap<String, Element>,
+    }
+
+    impl PeriodicTable {
+        // Create a new PeriodicTable
+        pub fn new() -> Self {
+            let mut elements = HashMap::new();
+            // ion_radius for Fe
+            let mut iron_ion_radius = HashMap::new();
+            iron_ion_radius.insert(2, 0.76); // Fe2+ ion radius
+            iron_ion_radius.insert(3, 0.64); // Fe3+ ion radius
+
+            // Add an element to the periodic table
+            elements.insert(
+                String::from("Fe"),
+                Element {
+                    name: String::from("Iron"),
+                    atomic_number: 26,
+                    mass: 55.845,
+                    valence_radius: NAN, 
+                    valence_electrons: 8, 
+                    ion_radius: iron_ion_radius, // Replace with actual value
+                    atom_radius: 1.17,
+                },
+            );
+
+            // Add more elements...
+
+            Self { elements }
+        }
+
+        // Get an element by its symbol
+        pub fn get(&self, symbol: &str) -> Option<&Element> {
+            self.elements.get(symbol)
+        }
+
+        // Add more methods as needed...
+    }
+}

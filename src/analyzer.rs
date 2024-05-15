@@ -1,7 +1,7 @@
 pub mod arc_analyzer{
     //! necessary functions for analyzing StructureBlock
     use std::cmp::Ordering;
-
+    use crate::modules::periodic_table::PeriodicTable;
     use crate::modules::structures::{ StructureBlock, Atom};
     
     /**
@@ -128,10 +128,11 @@ pub mod arc_analyzer{
      */
     pub fn calc_coordination(block:&StructureBlock) -> Vec<u64>
     {
+        let periodic_table = PeriodicTable::new();
         let mut coordination = vec![0; block.atoms.len()];
-        let threshold = 2.8; // table of atom radious haven't be implemented
         for i in 0..block.atoms.len(){
             for j in i+1..block.atoms.len(){
+                let threshold = periodic_table.get(&block.atoms[i].element).unwrap().atom_radius + periodic_table.get(&block.atoms[j].element).unwrap().atom_radius + 0.3;
                 let distance = distance(&block.atoms[i], &block.atoms[j]);
                 if distance <= threshold{
                     coordination[i] += 1;
