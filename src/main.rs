@@ -4,7 +4,7 @@ mod analyzer;
 
 use clap::{value_parser, Arg, ArgAction, Command};
 use crate::modules::structures::StructureBlock;
-use crate::parser::arc_parser;
+use crate::parser::file_parser;
 use crate::analyzer::arc_analyzer::{self, check_atom_consistency, list_energy};
 use colored::*;
 
@@ -93,19 +93,19 @@ fn main() {
     println!("The current directory is {}", current_path.display());
     //check if the result is reliable
     if check_flag{
-        let structures = match arc_parser::read_file("Badstr.arc".to_owned()) {
+        let structures = match file_parser::read_file("Badstr.arc".to_owned()) {
             Ok(blocks) => blocks,
             Err(error) =>{
                 panic!("{}", error);
             }
         };
-        let unconverged_index = arc_parser::find_unconverged_strucutres().unwrap();
+        let unconverged_index = file_parser::find_unconverged_strucutres().unwrap();
         if structures.len() >= 3 || unconverged_index.len() >= 3{
             println!("{}","this result might be unreliable!".red());
             println!("structure in Badstr.arc: {}",structures.len());
             println!("unconverged iterations in lasp.out: {}", unconverged_index.len());
             println!("finding unconverged strucutres");
-            let all_strucutres = match arc_parser::read_file("all.arc".to_owned()){
+            let all_strucutres = match file_parser::read_file("all.arc".to_owned()){
                 Ok(blocks) => blocks,
                 Err(error) => {
                     panic!("{}", error);
@@ -119,7 +119,7 @@ fn main() {
                     }
                 }
             }
-            arc_parser::write_to_file(unconverged_structure, String::from("unconverged.arc")).unwrap();
+            file_parser::write_to_file(unconverged_structure, String::from("unconverged.arc")).unwrap();
             println!("the unconverged structures have been written to unconverged.arc")
         }
         else {
@@ -128,7 +128,7 @@ fn main() {
         return;
     }
     //read the arc file
-    let structures:Vec<StructureBlock> = match arc_parser::read_file(file.to_string()){
+    let structures:Vec<StructureBlock> = match file_parser::read_file(file.to_string()){
         Ok(blocks) => blocks,
         Err(error) =>{
             panic!("{}", error);

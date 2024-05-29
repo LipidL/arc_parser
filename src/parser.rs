@@ -1,4 +1,4 @@
-pub mod arc_parser{
+pub mod file_parser{
     //! some necessary functions that parses .arc file
     use crate::modules::structures::{Atom, StructureBlock, Coordinate, CrystalInfo};
     use std::fs::File;
