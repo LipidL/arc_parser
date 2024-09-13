@@ -225,9 +225,10 @@ pub mod file_parser{
     check lasp.out file to find all unconverged structures
     returns: `Vec<u64>`, a vector containing the position in all.arc for unconverged strucutres
      */
-    pub fn find_unconverged_strucutres() -> io::Result<Vec<u64>>{
+    pub fn find_unconverged_strucutres(path: std::path::PathBuf) -> io::Result<Vec<u64>>{
         let mut unconverged_strucutres: Vec<u64> = Vec::new();
-        let file = File::open(Path::new("lasp.out"))?;
+        let lasp_out_path = path.join("lasp.out");
+        let file = File::open(lasp_out_path)?;
         let reader = io::BufReader::new(file);
         let mut previous_line = String::new();
         let lasp_out_parser = LaspOutParser::new();

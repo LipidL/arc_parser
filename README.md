@@ -16,24 +16,28 @@ arc_parser is a small program written in Rust that parses .arc files produced by
 ## Functions in Progress
 + Automatically analyze exposure of crystal surface
 + Analyze symmetry of structure
++ Find substructure that is similar to a reference structure in a given .arc file
 
 
 
 
 ## Usage
-### Basic Command
-To use arc_parser, enter the following command:
+From 0.2.0 version, usage have changed.
+Users can now use subcommands to specify the type of the task.
+For example, 
 ```
-./arc_parser -f myfile.arc
+./arc_parser parse -f myfile.arc
 ```
+or
+```
+./arc_parser check -p .
+```
+The following are subcommands supported
+### parse
 
-### Arguments
+`parse` subcommand provides basic analystics to target arc file.
 
-+ use `--check` to check if the SSW result is valid
-
-    having more than 3 strucutres in Badstr.arc or having more than 3 unconverged structures are seen as invalid.
-
-    in case of invalid result, unconverged.arc containing all unconverged structures will be written.
+#### arguments
 
 + use `-f` or `--file` to specify the file you want to parse
 
@@ -49,15 +53,46 @@ To use arc_parser, enter the following command:
 
 + use `--extract` to extract the structure with the minimum energy to minimum.arc
 
-+ use `-r` or `--rearrange` to rearrange the minimum block by atom's coordinate, x, y or z
++ use `--coord` to specify the structure that you want to analyze coordination number. 
 
-    for example:
-    ./arc_parser -f myfile.arc --rearrange x
+    *Note that the first structure in .arc file is number 0.*
 
-+ use `--scale` to scale the crystal of the minimum block by given size
+If no number specified, the structure with the minimum energy will be automatically analyzed.
 
-    for example:
-    ./arc_parser -f myfile.arc --scale 2 #this command expands the crystal by 2
-    ./arc_parser -f myfile.arc -s 1 -s 2 -s 2 #this command expands y and z of the crystal by 2 while keeping x unchanged
+### check
 
-more arguments are still in progress
+`check` subcommand helps you check whether the result of [LASP](http://www.lasphub.com/) is valid.
+
+#### arguments
+
++ use `-p` or `--path` to specify the path to the directory of the result.
+
+### modify
+
+`modify` subcommands do some modifications to the structure, and output the structure to another .arc file
+
+#### arguments
+
++ use `-f` or `--file` to specify the file that you want to modify
+
++ use `-n` or `--number` to specify the structure that you want to modify
+
+    *Note that the first structure in .arc file is number 0.*
+
+If no number specified, the structure with the minimum energy is automatically selected.
+
++ use `-r` or `--rearrange` to rearrange atoms of the structure.
+    
+    *You should specify x, y or z after this argument*
+
++ use `-s` or `--scale` to scale the cell of the structure.
+
+    *You should specify one or three number(s) after this argument*
+    
+if one number specified, the whole cell will be scaled by that proportion;
+
+if three numbers specified, the a, b and c value will be scaled by the three proportions respectively
+
+    *Note that if you shrink the cell by specifying a proportion less than 1, it is possible that the cell can't hold all the atoms.*
+
+more subcommands arguments are still in progress

@@ -1,6 +1,6 @@
 [package]
 name = "arc_parser"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [lib]
@@ -13,3 +13,4 @@ path = "src/lib.rs"
 regex = "1.10.2"
 clap = "4.4.8"
 colored = "2.0"
+structopt = "0.3"
