@@ -99,7 +99,8 @@ pub mod periodic_table {
     use std::{collections::HashMap, f64::NAN};
 
     #[derive(Debug)]
-    pub struct Element {
+    #[derive(PartialEq)]
+pub struct Element {
         pub name: String,
         pub atomic_number: u64,
         pub mass: f64,
@@ -147,5 +148,154 @@ pub mod periodic_table {
         }
 
         // Add more methods as needed...
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::modules::structures::CrystalInfo;
+
+    use super::periodic_table::PeriodicTable;
+
+    #[test]
+    fn test_periodic_table() {
+        let table = PeriodicTable::new();
+        let iron = table.get("Fe").unwrap();
+        assert_eq!(iron.name, "Iron");
+        assert_eq!(iron.atomic_number, 26);
+        assert_eq!(iron.mass, 55.845);
+        assert_eq!(iron.valence_electrons, 8);
+        assert_eq!(iron.ion_radius.get(&2), Some(&0.76));
+        assert_eq!(iron.ion_radius.get(&3), Some(&0.64));
+        assert_eq!(iron.atom_radius, 1.17);
+    }
+
+    #[test]
+    fn test_periodic_table_missing_element() {
+        let table = PeriodicTable::new();
+        assert_eq!(table.get("H"), None);
+    }
+
+    #[test]
+    fn test_atom_subtraction() {
+        use super::structures::{Atom, Coordinate};
+        let atom1 = Atom {
+            element: "Fe".to_string(),
+            coordinate: Coordinate(5.0, 5.0, 5.0),
+        };
+        let atom2 = Atom {
+            element: "Fe".to_string(),
+            coordinate: Coordinate(1.0, 2.0, 3.0),
+        };
+        let diff = &atom1 - &atom2;
+        assert!(diff.0 - 4.0 < 1e-6);
+        assert!(diff.1 - 3.0 < 1e-6);
+        assert!(diff.2 - 2.0 < 1e-6);
+    }
+
+    #[test]
+    fn test_addatom() {
+        use super::structures::{Atom, Coordinate, StructureBlock};
+        let mut block = StructureBlock {
+            number: 1,
+            energy: 0.0,
+            symmetry: "P1".to_string(),
+            crystal: CrystalInfo {
+                x: 10.0,
+                y: 10.0,
+                z: 10.0,
+                alpha: 90.0,
+                beta: 90.0,
+                gamma: 90.0,
+            },
+            atoms: vec![],
+        };
+        let atom = Atom {
+            element: "Fe".to_string(),
+            coordinate: Coordinate(1.0, 2.0, 3.0),
+        };
+        block.addatom(atom);
+        assert_eq!(block.atoms.len(), 1);
+        assert_eq!(block.atoms[0].element, "Fe");
+        assert!(block.atoms[0].coordinate.0 - 1.0 < 1e-6);
+        assert!(block.atoms[0].coordinate.1 - 2.0 < 1e-6);
+        assert!(block.atoms[0].coordinate.2 - 3.0 < 1e-6);
+    }
+
+    #[test]
+    fn test_set_crystal_info() {
+        use super::structures::{CrystalInfo, StructureBlock};
+        let mut block = StructureBlock {
+            number: 1,
+            energy: 0.0,
+            symmetry: "P1".to_string(),
+            crystal: CrystalInfo {
+                x: 10.0,
+                y: 10.0,
+                z: 10.0,
+                alpha: 90.0,
+                beta: 90.0,
+                gamma: 90.0,
+            },
+            atoms: vec![],
+        };
+        let new_crystal = CrystalInfo {
+            x: 20.0,
+            y: 20.0,
+            z: 20.0,
+            alpha: 90.0,
+            beta: 90.0,
+            gamma: 90.0,
+        };
+        block.set_crystal_info(new_crystal);
+        assert!(block.crystal.x - 20.0 < 1e-6);
+        assert!(block.crystal.y - 20.0 < 1e-6);
+        assert!(block.crystal.z - 20.0 < 1e-6);
+    }
+
+    #[test]
+    fn test_expand_crystal() {
+        use super::structures::{CrystalInfo, StructureBlock};
+        let block = StructureBlock {
+            number: 1,
+            energy: 0.0,
+            symmetry: "P1".to_string(),
+            crystal: CrystalInfo {
+                x: 10.0,
+                y: 10.0,
+                z: 10.0,
+                alpha: 90.0,
+                beta: 90.0,
+                gamma: 90.0,
+            },
+            atoms: vec![],
+        };
+        let new_block = block.expand_crystal(2.0);
+        assert!(new_block.crystal.x - 20.0 < 1e-6);
+        assert!(new_block.crystal.y - 20.0 < 1e-6);
+        assert!(new_block.crystal.z - 20.0 < 1e-6);
+    }
+
+    #[test]
+    fn test_scale_crystal() {
+        use super::structures::{CoordinateChoice, CrystalInfo, StructureBlock};
+        let block = StructureBlock {
+            number: 1,
+            energy: 0.0,
+            symmetry: "P1".to_string(),
+            crystal: CrystalInfo {
+                x: 10.0,
+                y: 10.0,
+                z: 10.0,
+                alpha: 90.0,
+                beta: 90.0,
+                gamma: 90.0,
+            },
+            atoms: vec![],
+        };
+        let new_block = block.scale_crystal(CoordinateChoice::X, 2.0);
+        assert!(new_block.crystal.x - 20.0 < 1e-6);
+        assert!(new_block.crystal.y - 10.0 < 1e-6);
+        assert!(new_block.crystal.z - 10.0 < 1e-6);
     }
 }

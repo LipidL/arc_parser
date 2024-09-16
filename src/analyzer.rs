@@ -1,8 +1,13 @@
 pub mod arc_analyzer{
     //! necessary functions for analyzing StructureBlock
     use std::cmp::Ordering;
+    use nalgebra::{Const, Dyn, VecStorage};
+    use itertools::Itertools;
+
+
     use crate::modules::periodic_table::PeriodicTable;
     use crate::modules::structures::{ StructureBlock, Atom};
+    extern crate nalgebra as na;
     
     /**
     find the minimum energy of a given vector of StrucutreBlock
@@ -243,5 +248,54 @@ pub mod arc_analyzer{
             }
         }
         Ok(distances)
+    }
+
+    fn calculate_RMSD_by_matrix(structure1: na::Matrix<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>, structure2: na::Matrix<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>) -> f64 {
+        let ncols = structure1.ncols();
+        // the atom number should be the same
+        assert!(ncols == structure2.ncols());
+        let mirrored_structure2: na::Matrix<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>> = structure2.map(|x| -x);
+        // create an iterator for all possible permutions of columns of stucutre1
+        let mut minimum_rmsd = f64::MAX;
+        let col_permutations = (0..ncols).permutations(ncols).collect::<Vec<_>>();
+        col_permutations.iter().for_each(|perm| {
+            let permuted_structure1 = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::from_fn(ncols, |i, j| {
+                structure1[(i, perm[j])]
+            });
+            // calculate the center of mass of two structures
+            let center_of_mass1 = permuted_structure1.column_sum() / ncols as f64;
+            let center_of_mass2 = structure2.column_sum() / ncols as f64;
+            let center_of_mass2_mirrored = mirrored_structure2.column_sum() / ncols as f64;
+            // move the structures such that the center of mass is at the origin
+            let mut moved_structure1 = permuted_structure1.clone();
+            let mut moved_structure2 = structure2.clone();
+            let mut moved_structure2_mirrored = mirrored_structure2.clone();
+            for i in 0..ncols {
+                moved_structure1.column_mut(i).iter_mut().zip(center_of_mass1.iter()).for_each(|(x, y)| *x -= *y);
+                moved_structure2.column_mut(i).iter_mut().zip(center_of_mass2.iter()).for_each(|(x, y)| *x -= *y);
+                moved_structure2_mirrored.column_mut(i).iter_mut().zip(center_of_mass2_mirrored.iter()).for_each(|(x, y)| *x -= *y);
+            }
+            // use the kabsch method to calculate the minimum RMSD
+            let h = moved_structure1.clone() * moved_structure2.clone().transpose();
+            let svd_result = h.svd(true, true);
+            let v = svd_result.v_t.unwrap();
+            let u = svd_result.u.unwrap();
+            // check that the svd result is valid
+            let reconstructed_h = u * na::Matrix::from_diagonal(&svd_result.singular_values) * v.transpose();
+            assert!((h - reconstructed_h).norm() < 1e-10);
+            let d = u * v.transpose();
+            let det = d.determinant();
+            // calculate sign(det)
+            let sign = if det > 0.0 { 1.0 } else { -1.0 };
+            let s = na::Matrix::from_diagonal(&na::Vector3::new(1.0, 1.0, sign));
+            let rotation_matrix = u * s * v.transpose();
+            let rotated_structure1 = rotation_matrix * moved_structure1;
+            // calculate the RMSD
+            let rmsd = (rotated_structure1 - moved_structure2).norm() / f64::sqrt(ncols as f64);
+            if minimum_rmsd > rmsd {
+                minimum_rmsd = rmsd;
+            }
+        });
+        minimum_rmsd
     }
 }
