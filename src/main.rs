@@ -7,6 +7,8 @@ use crate::parser::file_parser;
 use crate::analyzer::arc_analyzer::{self, check_atom_consistency, list_energy};
 use colored::*;
 use structopt::StructOpt;
+use itertools::Itertools;
+use nalgebra::{self as na, Const, Dyn, VecStorage};
 
 #[derive(StructOpt)]
 struct MainProgram {
@@ -19,6 +21,7 @@ enum SubProgram {
     Parse(ParseArgs),
     Check(CheckArgs),
     Modify(ModifyArgs),
+    Compare(CompareArgs),
 }
 
 #[derive(StructOpt)]
@@ -57,6 +60,14 @@ struct ModifyArgs{
     rearrange: Option<String>,
     #[structopt(help = "scale the crystal by given factor", short="s", long="scale")]
     scale: Option<Vec<f64>>,
+}
+
+#[derive(StructOpt)]
+struct CompareArgs{
+    #[structopt(help = "the file to compare", short="f", long="file1")]
+    file: std::path::PathBuf,
+    #[structopt(help = "the file to compare", short="F", long="file2")]
+    file2: std::path::PathBuf,
 }
 
 fn parse(args: ParseArgs){
@@ -223,6 +234,81 @@ fn modify(args: ModifyArgs){
     }
 }
 
+fn compare(args: CompareArgs){
+    let blocks1 = match file_parser::read_file(args.file.to_str().unwrap().to_string()){
+        Ok(blocks) => blocks,
+        Err(e) => {
+            eprintln!("{}: {}", "Error".red(), e);
+            std::process::exit(1);
+        }
+    };
+    let blocks2 = match file_parser::read_file(args.file2.to_str().unwrap().to_string()){
+        Ok(blocks) => blocks,
+        Err(e) => {
+            eprintln!("{}: {}", "Error".red(), e);
+            std::process::exit(1);
+        }
+    };
+    let ref_block = blocks2[0].clone();
+    let substructure_size = ref_block.atoms.len();
+    // compare each block in blocks1 with ref_block
+    for block in blocks1.iter(){
+        // remove all atom that is not Fe
+        let mut block = block.clone();
+        block.atoms.retain(|atom| atom.element == "Fe");
+        // calculate bond matrix of block
+        let bond_matrix = arc_analyzer::calc_coordination_matrix(&block);
+        // interate over all rows in bond_matrix
+        for i in 0..bond_matrix.nrows(){
+            // find all j such that bond_matrix[i][j] != 0
+            let mut neighbors = Vec::new();
+            for j in 0..bond_matrix.ncols(){
+                if bond_matrix[(i,j)] != 0{
+                    neighbors.push(j);
+                }
+            }
+            // skip atoms whose neighbors is more than 11
+            if neighbors.len() > 11{
+                continue;
+            }
+            // find all combination of neighbors using Itertools having size of substructure_size
+            let combinations = neighbors.iter().combinations(substructure_size - 1).collect::<Vec<_>>();
+            // iterate over all combinations
+            for combination in combinations.iter(){
+                // create a position matrix consisting of the atoms in combination and atom i
+                let mut position_matrix = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::zeros(substructure_size);
+                for (index, atom_index) in combination.iter().enumerate(){
+                    position_matrix[(0, index)] = block.atoms[**atom_index].coordinate.0;
+                    position_matrix[(1, index)] = block.atoms[**atom_index].coordinate.1;
+                    position_matrix[(2, index)] = block.atoms[**atom_index].coordinate.2;
+                }
+                position_matrix[(0, substructure_size - 1)] = block.atoms[i].coordinate.0;
+                position_matrix[(1, substructure_size - 1)] = block.atoms[i].coordinate.1;
+                position_matrix[(2, substructure_size - 1)] = block.atoms[i].coordinate.2;
+                // create the position matrix of ref_block
+                let mut ref_position_matrix = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::zeros(substructure_size);
+                for index in 0..substructure_size{
+                    ref_position_matrix[(0, index)] = ref_block.atoms[index].coordinate.0;
+                    ref_position_matrix[(1, index)] = ref_block.atoms[index].coordinate.1;
+                    ref_position_matrix[(2, index)] = ref_block.atoms[index].coordinate.2;
+                }
+                // now the two matrices should have same ncols and nrows
+                assert!(position_matrix.nrows() == ref_position_matrix.nrows());
+                assert!(position_matrix.ncols() == ref_position_matrix.ncols());
+                // calculate the rmsd between the two matrices
+                let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&position_matrix, &ref_position_matrix);
+                println!("{}: {}", "RMSD".blue(), rmsd);
+                if rmsd < 0.3 {
+                    println!("{}: {}", "Found a substructure".green(), rmsd);
+                    println!("{}: {:?}", "Substructure".green(), combination);
+                    println!("{}: {:?}", "Position matrix".green(), position_matrix);
+                    println!("{}: {:?}", "Ref position matrix".green(), ref_position_matrix);
+                }
+            }
+        }   
+    }  
+}
+
 fn main(){
     let main_program = MainProgram::from_args();
     match main_program.subprogram {
@@ -231,9 +317,12 @@ fn main(){
         },
         SubProgram::Check(args) => {
             check(args);
-        }
+        },
         SubProgram::Modify(args) => {
             modify(args);
+        },
+        SubProgram::Compare(args) => {
+            compare(args);
         }
     }
 }

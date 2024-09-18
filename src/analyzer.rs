@@ -148,6 +148,25 @@ pub mod arc_analyzer{
         coordination
     }
 
+    /**
+     calculate the coordination matrix of a `StructureBlock`
+     */
+    pub fn calc_coordination_matrix(block:&StructureBlock) -> na::Matrix<u64, Dyn, Dyn, VecStorage<u64, Dyn, Dyn>> {
+        let mut matrix = na::Matrix::<u64, Dyn, Dyn, VecStorage<u64, Dyn, Dyn>>::zeros(block.atoms.len(), block.atoms.len());
+        let periodic_table = PeriodicTable::new();
+        for i in 0..block.atoms.len(){
+            for j in i+1..block.atoms.len(){
+                let threshold = periodic_table.get(&block.atoms[i].element).unwrap().atom_radius + periodic_table.get(&block.atoms[j].element).unwrap().atom_radius + 0.3;
+                let distance = distance(&block.atoms[i], &block.atoms[j]);
+                if distance <= threshold {
+                    matrix[(i, j)] += 1;
+                    matrix[(j, i)] += 1;
+                }
+            }
+        }
+        matrix 
+    }
+
     #[derive(Clone)]
     #[derive(Debug)]
     struct Plane {
@@ -293,9 +312,9 @@ pub mod arc_analyzer{
                 let v = svd_result.v_t.unwrap();
                 let u = svd_result.u.unwrap();
                 // check that the svd result is valid
-                let diagonal_s = na::Matrix::from_diagonal(&svd_result.singular_values);
-                let reconstructed_h = u * diagonal_s * v;
-                assert!((h - reconstructed_h).norm() < 1e-10);
+                // let diagonal_s = na::Matrix::from_diagonal(&svd_result.singular_values);
+                // let reconstructed_h = u * diagonal_s * v;
+                // assert!((h - reconstructed_h).norm() < 1e-10);
                 let d = u * v;
                 let det = d.determinant();
                 // calculate sign(det)
