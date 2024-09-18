@@ -250,11 +250,19 @@ pub mod arc_analyzer{
         Ok(distances)
     }
 
-    fn calculate_RMSD_by_matrix(structure1: na::Matrix<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>, structure2: na::Matrix<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>) -> f64 {
+    pub fn calculate_rmsd_by_matrix(structure1: &na::Matrix<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>, structure2: &na::Matrix<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>) -> f64 {
         let ncols = structure1.ncols();
         // the atom number should be the same
         assert!(ncols == structure2.ncols());
-        let mirrored_structure2: na::Matrix<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>> = structure2.map(|x| -x);
+        // construct the mirrored and inversed structure2
+        let mirrored_structure2 = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::from_fn(ncols, |i, j| {
+            if i == 0 {
+                -structure2[(i, j)]
+            } else {
+                structure2[(i, j)]
+            }
+        });
+        let inversed_structure2 = structure2.clone().map(|x| -x);
         // create an iterator for all possible permutions of columns of stucutre1
         let mut minimum_rmsd = f64::MAX;
         let col_permutations = (0..ncols).permutations(ncols).collect::<Vec<_>>();
@@ -266,36 +274,530 @@ pub mod arc_analyzer{
             let center_of_mass1 = permuted_structure1.column_sum() / ncols as f64;
             let center_of_mass2 = structure2.column_sum() / ncols as f64;
             let center_of_mass2_mirrored = mirrored_structure2.column_sum() / ncols as f64;
+            let center_of_mass2_inversed = inversed_structure2.column_sum() / ncols as f64;
             // move the structures such that the center of mass is at the origin
             let mut moved_structure1 = permuted_structure1.clone();
             let mut moved_structure2 = structure2.clone();
             let mut moved_structure2_mirrored = mirrored_structure2.clone();
+            let mut moved_structure2_inversed = inversed_structure2.clone();
             for i in 0..ncols {
                 moved_structure1.column_mut(i).iter_mut().zip(center_of_mass1.iter()).for_each(|(x, y)| *x -= *y);
                 moved_structure2.column_mut(i).iter_mut().zip(center_of_mass2.iter()).for_each(|(x, y)| *x -= *y);
                 moved_structure2_mirrored.column_mut(i).iter_mut().zip(center_of_mass2_mirrored.iter()).for_each(|(x, y)| *x -= *y);
+                moved_structure2_inversed.column_mut(i).iter_mut().zip(center_of_mass2_inversed.iter()).for_each(|(x, y)| *x -= *y);
             }
             // use the kabsch method to calculate the minimum RMSD
-            let h = moved_structure1.clone() * moved_structure2.clone().transpose();
-            let svd_result = h.svd(true, true);
-            let v = svd_result.v_t.unwrap();
-            let u = svd_result.u.unwrap();
-            // check that the svd result is valid
-            let reconstructed_h = u * na::Matrix::from_diagonal(&svd_result.singular_values) * v.transpose();
-            assert!((h - reconstructed_h).norm() < 1e-10);
-            let d = u * v.transpose();
-            let det = d.determinant();
-            // calculate sign(det)
-            let sign = if det > 0.0 { 1.0 } else { -1.0 };
-            let s = na::Matrix::from_diagonal(&na::Vector3::new(1.0, 1.0, sign));
-            let rotation_matrix = u * s * v.transpose();
-            let rotated_structure1 = rotation_matrix * moved_structure1;
-            // calculate the RMSD
-            let rmsd = (rotated_structure1 - moved_structure2).norm() / f64::sqrt(ncols as f64);
-            if minimum_rmsd > rmsd {
-                minimum_rmsd = rmsd;
+            for s2 in [moved_structure2, moved_structure2_mirrored, moved_structure2_inversed] {
+                let h = moved_structure1.clone() * (s2.clone().transpose());
+                let svd_result = h.svd(true, true);
+                let v = svd_result.v_t.unwrap();
+                let u = svd_result.u.unwrap();
+                // check that the svd result is valid
+                let diagonal_s = na::Matrix::from_diagonal(&svd_result.singular_values);
+                let reconstructed_h = u * diagonal_s * v;
+                assert!((h - reconstructed_h).norm() < 1e-10);
+                let d = u * v;
+                let det = d.determinant();
+                // calculate sign(det)
+                let sign = if det > 0.0 { 1.0 } else { -1.0 };
+                let s = na::Matrix::from_diagonal(&na::Vector3::new(1.0, 1.0, sign));
+                let rotation_matrix = u * s * v;
+                let rotated_s2 = rotation_matrix * s2.clone();
+                // calculate the RMSD
+                let rmsd = (rotated_s2 - moved_structure1.clone()).norm() / f64::sqrt(ncols as f64);
+                if minimum_rmsd > rmsd {
+                    minimum_rmsd = rmsd;
+                }               
             }
+
         });
         minimum_rmsd
+    }
+}
+
+#[cfg(test)]
+mod tests{
+    use crate::analyzer::arc_analyzer;
+    use crate::modules::structures::{Atom, Coordinate, StructureBlock};
+    use nalgebra::{self as na, Const, Dyn, VecStorage};
+
+    #[test]
+    fn test_find_minimum_energy() {
+        // Test with a normal vector
+        let blocks = vec![
+            StructureBlock {
+                number: 1,
+                energy: 1.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 2,
+                energy: 2.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 3,
+                energy: 3.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+        ];
+        assert!(arc_analyzer::find_minimum_energy(&blocks).unwrap() - 1.0 < 1e-6);
+        // Test with an empty vector
+        let empty_blocks: Vec<StructureBlock> = vec![];
+        assert!(arc_analyzer::find_minimum_energy(&empty_blocks).is_none());
+    }
+
+    #[test]
+    fn test_count_structure_block() {
+        let blocks = vec![
+            StructureBlock {
+                number: 1,
+                energy: 1.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 2,
+                energy: 2.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 3,
+                energy: 3.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+        ];
+        assert_eq!(arc_analyzer::count_strucutre_block(&blocks), 3);
+        assert_eq!(arc_analyzer::count_strucutre_block(&vec![]), 0);
+    }
+
+    #[test]
+    fn test_check_atom_consistency() {
+        // Test with a vector of blocks with the same atoms
+        let blocks = vec![
+            StructureBlock {
+                number: 1,
+                energy: 1.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 2,
+                energy: 2.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 3,
+                energy: 3.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+        ];
+        assert!(arc_analyzer::check_atom_consistency(&blocks).is_some());
+        // Test with a vector of blocks with different atoms
+        let blocks = vec![
+            StructureBlock {
+                number: 1,
+                energy: 1.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 2,
+                energy: 2.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 3,
+                energy: 3.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "O".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+        ];
+        assert!(arc_analyzer::check_atom_consistency(&blocks).is_none());
+
+        // Test with a vector of blocks with different number of atoms
+        let blocks = vec![
+            StructureBlock {
+                number: 1,
+                energy: 1.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 2,
+                energy: 2.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 3,
+                energy: 3.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![
+                    Atom {
+                        element: "Fe".to_string(),
+                        coordinate: Coordinate(5.0, 5.0, 5.0),
+                    },
+                    Atom {
+                        element: "Fe".to_string(),
+                        coordinate: Coordinate(5.0, 5.0, 5.0),
+                    },
+                ],
+            },
+        ];
+        assert!(arc_analyzer::check_atom_consistency(&blocks).is_none());
+
+        // Test with an empty vector
+        let empty_blocks: Vec<StructureBlock> = vec![];
+        assert!(arc_analyzer::check_atom_consistency(&empty_blocks).is_some());
+    }
+
+    #[test]
+    fn test_list_energy() {
+        // Test with a normal vector
+        let blocks = vec![
+            StructureBlock {
+                number: 1,
+                energy: 1.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 2,
+                energy: 1.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 3,
+                energy: 2.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "O".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+        ];
+        let energy_list = arc_analyzer::list_energy(&blocks);
+        assert_eq!(energy_list.len(), 2);
+        assert!(energy_list.iter().any(|info| info.energy - 1.0 < 1e-6 && info.count == 2));
+        assert!(energy_list.iter().any(|info| info.energy - 2.0 < 1e-6 && info.count == 1));
+        // Test with an empty vector
+        let empty_blocks: Vec<StructureBlock> = vec![];
+        let energy_list = arc_analyzer::list_energy(&empty_blocks);
+        assert!(energy_list.is_empty());
+    }
+
+    #[test]
+    fn test_extract_minimum() {
+        // Test with a normal vector
+        let blocks = vec![
+            StructureBlock {
+                number: 1,
+                energy: 1.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 2,
+                energy: 2.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+            StructureBlock {
+                number: 3,
+                energy: 3.0,
+                symmetry: "P1".to_string(),
+                crystal: crate::modules::structures::CrystalInfo {
+                    x: 10.0,
+                    y: 10.0,
+                    z: 10.0,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0,
+                },
+                atoms: vec![Atom {
+                    element: "Fe".to_string(),
+                    coordinate: Coordinate(5.0, 5.0, 5.0),
+                }],
+            },
+        ];
+        let min_block = arc_analyzer::extract_minimum(&blocks).unwrap();
+        assert_eq!(min_block.energy, 1.0);
+        // Test with an empty vector
+        let empty_blocks: Vec<StructureBlock> = vec![];
+        assert!(arc_analyzer::extract_minimum(&empty_blocks).is_none());
+    }
+
+    #[test]
+    fn test_calculate_rmsd_by_matrix() {
+        // Test with identical structures
+        let structure1 = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::from_row_slice(&[
+            1.0, 2.0, 3.0, 4.0, 
+            5.0, 6.0, 7.0, 8.0,
+            9.0, 10.0, 11.0, 12.0,
+        ]);
+        let structure2 = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::from_row_slice(&[
+            1.0, 2.0, 3.0, 4.0, 
+            5.0, 6.0, 7.0, 8.0,
+            9.0, 10.0, 11.0, 12.0,
+        ]);
+        let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&structure1, &structure2);
+        assert!(rmsd < 1e-6);
+        // Test with identical but mirrored structures
+        let structure2 = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::from_row_slice(&[
+            5.0, 6.0, 7.0, 8.0,
+            1.0, 2.0, 3.0, 4.0, 
+            9.0, 10.0, 11.0, 12.0,
+        ]);
+        let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&structure1, &structure2);
+        assert!(rmsd < 1e-6);
+        // Test with identical but atom order reversed structures
+        let structure2 = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::from_row_slice(&[
+            1.0, 2.0, 4.0, 3.0, 
+            5.0, 6.0, 8.0, 7.0,
+            9.0, 10.0, 12.0, 11.0,
+        ]);
+        let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&structure1, &structure2);
+        assert!(rmsd < 1e-6);
+        // Test with identical but inversed structures
+        let structure2 = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::from_row_slice(&[
+            -1.0, -2.0, -3.0, -4.0, 
+            -5.0, -6.0, -7.0, -8.0,
+            -9.0, -10.0, -11.0, -12.0,
+        ]);
+        let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&structure1, &structure2);
+        assert!(rmsd < 1e-6);
+        // Test with identical but rotated structures
+        let rotation = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::from_row_slice(&[
+            1.0, 0.0, 0.0,
+            0.0, 0.7071, -0.7071,
+            0.0, 0.7071, 0.7071
+        ]);
+        let structure2 = rotation * structure1.clone();
+        let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&structure1, &structure2);
+        assert!(rmsd < 1e-3);
     }
 }
