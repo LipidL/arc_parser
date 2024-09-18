@@ -156,7 +156,7 @@ pub mod arc_analyzer{
         let periodic_table = PeriodicTable::new();
         for i in 0..block.atoms.len(){
             for j in i+1..block.atoms.len(){
-                let threshold = periodic_table.get(&block.atoms[i].element).unwrap().atom_radius + periodic_table.get(&block.atoms[j].element).unwrap().atom_radius + 0.3;
+                let threshold = periodic_table.get(&block.atoms[i].element).unwrap().atom_radius + periodic_table.get(&block.atoms[j].element).unwrap().atom_radius + 0.5;
                 let distance = distance(&block.atoms[i], &block.atoms[j]);
                 if distance <= threshold {
                     matrix[(i, j)] += 1;

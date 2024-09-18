@@ -297,7 +297,6 @@ fn compare(args: CompareArgs){
                 assert!(position_matrix.ncols() == ref_position_matrix.ncols());
                 // calculate the rmsd between the two matrices
                 let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&position_matrix, &ref_position_matrix);
-                println!("{}: {}", "RMSD".blue(), rmsd);
                 if rmsd < 0.3 {
                     println!("{}: {}", "Found a substructure".green(), rmsd);
                     println!("{}: {:?}", "Substructure".green(), combination);
