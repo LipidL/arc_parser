@@ -252,7 +252,7 @@ fn compare(args: CompareArgs){
     let ref_block = blocks2[0].clone();
     let substructure_size = ref_block.atoms.len();
     // compare each block in blocks1 with ref_block
-    for block in blocks1.iter(){
+    for (block_index, block) in blocks1.iter().enumerate(){
         // remove all atom that is not Fe
         let mut block = block.clone();
         block.atoms.retain(|atom| atom.element == "Fe");
@@ -298,10 +298,7 @@ fn compare(args: CompareArgs){
                 // calculate the rmsd between the two matrices
                 let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&position_matrix, &ref_position_matrix);
                 if rmsd < 0.3 {
-                    println!("{}: {}", "Found a substructure".green(), rmsd);
-                    println!("{}: {:?}", "Substructure".green(), combination);
-                    println!("{}: {:?}", "Position matrix".green(), position_matrix);
-                    println!("{}: {:?}", "Ref position matrix".green(), ref_position_matrix);
+                    println!("Found a substructure at {}: rmsd={}; atoms={:?}", block_index, rmsd, combination);
                 }
             }
         }   
