@@ -68,6 +68,8 @@ struct CompareArgs{
     file: std::path::PathBuf,
     #[structopt(help = "the file to compare", short="F", long="file2")]
     file2: std::path::PathBuf,
+    #[structopt(help = "number of threads", short="t", long="threads")]
+    threads: Option<usize>,
 }
 
 fn parse(args: ParseArgs){
@@ -251,58 +253,79 @@ fn compare(args: CompareArgs){
     };
     let ref_block = blocks2[0].clone();
     let substructure_size = ref_block.atoms.len();
+    let num_threads = match args.threads{
+        Some(n) => n,
+        None => 1,
+    };
+    let mut handles = Vec::new();
     // compare each block in blocks1 with ref_block
-    for (block_index, block) in blocks1.iter().enumerate(){
-        // remove all atom that is not Fe
-        let mut block = block.clone();
-        block.atoms.retain(|atom| atom.element == "Fe");
-        // calculate bond matrix of block
-        let bond_matrix = arc_analyzer::calc_coordination_matrix(&block);
-        // interate over all rows in bond_matrix
-        for i in 0..bond_matrix.nrows(){
-            // find all j such that bond_matrix[i][j] != 0
-            let mut neighbors = Vec::new();
-            for j in 0..bond_matrix.ncols(){
-                if bond_matrix[(i,j)] != 0{
-                    neighbors.push(j);
+    for i in 0..num_threads{
+        let thread_index = i;
+        let num_threads = num_threads;
+        let blocks = blocks1.clone();
+        let ref_block = ref_block.clone();
+        let handle = std::thread::spawn(move || {
+            for block_index in (0..blocks.len()).filter(|x| x % num_threads == thread_index){
+                // remove all atom that is not Fe
+                println!("Checking block {}", block_index);
+                let block = &blocks[block_index];
+                let mut block = block.clone();
+                block.atoms.retain(|atom| atom.element == "Fe");
+                // calculate bond matrix of block
+                let bond_matrix = arc_analyzer::calc_coordination_matrix(&block);
+                // interate over all rows in bond_matrix
+                for i in 0..bond_matrix.nrows(){
+                    // find all j such that bond_matrix[i][j] != 0
+                    let mut neighbors = Vec::new();
+                    for j in 0..bond_matrix.ncols(){
+                        if bond_matrix[(i,j)] != 0{
+                            neighbors.push(j);
+                        }
+                    }
+                    // skip atoms whose neighbors is more than 11
+                    if neighbors.len() > 11{
+                        continue;
+                    }
+                    // find all combination of neighbors using Itertools having size of substructure_size
+                    let combinations = neighbors.iter().combinations(substructure_size - 1).collect::<Vec<_>>();
+                    // iterate over all combinations
+                    for combination in combinations.iter(){
+                        // create a position matrix consisting of the atoms in combination and atom i
+                        let mut position_matrix = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::zeros(substructure_size);
+                        for (index, atom_index) in combination.iter().enumerate(){
+                            position_matrix[(0, index)] = block.atoms[**atom_index].coordinate.0;
+                            position_matrix[(1, index)] = block.atoms[**atom_index].coordinate.1;
+                            position_matrix[(2, index)] = block.atoms[**atom_index].coordinate.2;
+                        }
+                        position_matrix[(0, substructure_size - 1)] = block.atoms[i].coordinate.0;
+                        position_matrix[(1, substructure_size - 1)] = block.atoms[i].coordinate.1;
+                        position_matrix[(2, substructure_size - 1)] = block.atoms[i].coordinate.2;
+                        // create the position matrix of ref_block
+                        let mut ref_position_matrix = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::zeros(substructure_size);
+                        for index in 0..substructure_size{
+                            ref_position_matrix[(0, index)] = ref_block.atoms[index].coordinate.0;
+                            ref_position_matrix[(1, index)] = ref_block.atoms[index].coordinate.1;
+                            ref_position_matrix[(2, index)] = ref_block.atoms[index].coordinate.2;
+                        }
+                        // now the two matrices should have same ncols and nrows
+                        assert!(position_matrix.nrows() == ref_position_matrix.nrows());
+                        assert!(position_matrix.ncols() == ref_position_matrix.ncols());
+                        // calculate the rmsd between the two matrices
+                        let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&position_matrix, &ref_position_matrix);
+                        if rmsd < 0.3 {
+                            println!("Found a substructure at {}: rmsd={}; atoms={:?}", block_index, rmsd, combination);
+                        }
+                    }
                 }
+                println!("Block {} done", block_index);
             }
-            // skip atoms whose neighbors is more than 11
-            if neighbors.len() > 11{
-                continue;
-            }
-            // find all combination of neighbors using Itertools having size of substructure_size
-            let combinations = neighbors.iter().combinations(substructure_size - 1).collect::<Vec<_>>();
-            // iterate over all combinations
-            for combination in combinations.iter(){
-                // create a position matrix consisting of the atoms in combination and atom i
-                let mut position_matrix = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::zeros(substructure_size);
-                for (index, atom_index) in combination.iter().enumerate(){
-                    position_matrix[(0, index)] = block.atoms[**atom_index].coordinate.0;
-                    position_matrix[(1, index)] = block.atoms[**atom_index].coordinate.1;
-                    position_matrix[(2, index)] = block.atoms[**atom_index].coordinate.2;
-                }
-                position_matrix[(0, substructure_size - 1)] = block.atoms[i].coordinate.0;
-                position_matrix[(1, substructure_size - 1)] = block.atoms[i].coordinate.1;
-                position_matrix[(2, substructure_size - 1)] = block.atoms[i].coordinate.2;
-                // create the position matrix of ref_block
-                let mut ref_position_matrix = na::Matrix::<f64, Const<3>, Dyn, VecStorage<f64, Const<3>, Dyn>>::zeros(substructure_size);
-                for index in 0..substructure_size{
-                    ref_position_matrix[(0, index)] = ref_block.atoms[index].coordinate.0;
-                    ref_position_matrix[(1, index)] = ref_block.atoms[index].coordinate.1;
-                    ref_position_matrix[(2, index)] = ref_block.atoms[index].coordinate.2;
-                }
-                // now the two matrices should have same ncols and nrows
-                assert!(position_matrix.nrows() == ref_position_matrix.nrows());
-                assert!(position_matrix.ncols() == ref_position_matrix.ncols());
-                // calculate the rmsd between the two matrices
-                let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&position_matrix, &ref_position_matrix);
-                if rmsd < 0.3 {
-                    println!("Found a substructure at {}: rmsd={}; atoms={:?}", block_index, rmsd, combination);
-                }
-            }
-        }   
-    }  
+        });
+        handles.push(handle); 
+    } 
+    // wait for all threads to finish
+    for handle in handles{
+        handle.join().unwrap();
+    } 
 }
 
 fn main(){
