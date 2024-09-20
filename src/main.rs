@@ -10,6 +10,8 @@ use structopt::StructOpt;
 use itertools::Itertools;
 use nalgebra::{self as na, Const, Dyn, VecStorage};
 use std::sync::Arc;
+use ctrlc;
+use memory_stats::memory_stats;
 
 #[derive(StructOpt)]
 struct MainProgram {
@@ -238,6 +240,18 @@ fn modify(args: ModifyArgs){
 }
 
 fn compare(args: CompareArgs){
+    // setup a canary to dump data when killed
+    {
+        ctrlc::set_handler(move || {
+            eprintln!("{}","SIG received, dumping data".red());
+            if let Some(usage) = memory_stats() {
+                eprintln!("{}: {}", "Physical memory usage".red(), usage.physical_mem);
+                eprintln!("{}: {}", "Virtual memory usage".red(), usage.virtual_mem);
+            }
+        }).unwrap();
+    }
+
+
     let blocks1 = match file_parser::read_file(args.file.to_str().unwrap().to_string()){
         Ok(blocks) => blocks,
         Err(e) => {
