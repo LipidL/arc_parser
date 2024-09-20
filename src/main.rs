@@ -258,6 +258,7 @@ fn compare(args: CompareArgs){
         None => 1,
     };
     let mut handles = Vec::new();
+    println!("number of blocks: {}", blocks1.len());
     // compare each block in blocks1 with ref_block
     for i in 0..num_threads{
         let thread_index = i;
@@ -267,7 +268,7 @@ fn compare(args: CompareArgs){
         let handle = std::thread::spawn(move || {
             for block_index in (0..blocks.len()).filter(|x| x % num_threads == thread_index){
                 // remove all atom that is not Fe
-                println!("Checking block {}", block_index);
+                println!("thread {} checking block {}",thread_index, block_index);
                 let block = &blocks[block_index];
                 let mut block = block.clone();
                 block.atoms.retain(|atom| atom.element == "Fe");
@@ -313,11 +314,13 @@ fn compare(args: CompareArgs){
                         // calculate the rmsd between the two matrices
                         let rmsd = arc_analyzer::calculate_rmsd_by_matrix(&position_matrix, &ref_position_matrix);
                         if rmsd < 0.3 {
-                            println!("Found a substructure at {}: rmsd={}; atoms={:?}", block_index, rmsd, combination);
+                            let mut actual_atoms = combination.clone();
+                            actual_atoms.push(&i);
+                            println!("thread {} found a substructure at {}: rmsd={}; atoms={:?}",thread_index, block_index, rmsd, actual_atoms);
                         }
                     }
                 }
-                println!("Block {} done", block_index);
+                println!("thread {} completed block {}",thread_index, block_index);
             }
         });
         handles.push(handle); 
