@@ -9,6 +9,7 @@ use colored::*;
 use structopt::StructOpt;
 use itertools::Itertools;
 use nalgebra::{self as na, Const, Dyn, VecStorage};
+use std::sync::Arc;
 
 #[derive(StructOpt)]
 struct MainProgram {
@@ -251,25 +252,26 @@ fn compare(args: CompareArgs){
             std::process::exit(1);
         }
     };
-    let ref_block = blocks2[0].clone();
-    let substructure_size = ref_block.atoms.len();
+    println!("number of blocks: {}", blocks1.len());
+    let ref_block_arc = Arc::new(blocks2[0].clone());
+    let blocks1_arc = Arc::new(blocks1);
+    let substructure_size = ref_block_arc.atoms.len();
     let num_threads = match args.threads{
         Some(n) => n,
         None => 1,
     };
     let mut handles = Vec::new();
-    println!("number of blocks: {}", blocks1.len());
     // compare each block in blocks1 with ref_block
     for i in 0..num_threads{
         let thread_index = i;
         let num_threads = num_threads;
-        let blocks = blocks1.clone();
-        let ref_block = ref_block.clone();
+        let ref_block = Arc::clone(&ref_block_arc);
+        let blocks1 = Arc::clone(&blocks1_arc);
         let handle = std::thread::spawn(move || {
-            for block_index in (0..blocks.len()).filter(|x| x % num_threads == thread_index){
+            for block_index in (0..blocks1.len()).filter(|x| x % num_threads == thread_index){
                 // remove all atom that is not Fe
                 println!("thread {} checking block {}",thread_index, block_index);
-                let block = &blocks[block_index];
+                let block = &blocks1[block_index];
                 let mut block = block.clone();
                 block.atoms.retain(|atom| atom.element == "Fe");
                 // calculate bond matrix of block
