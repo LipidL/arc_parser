@@ -144,23 +144,10 @@ pub mod file_parser{
         for line in reader.lines(){
             //handle cases of io error
             let line = line?;
-            //check if the line is a atom information line
-            let atom_parse_result = atom_data_parser.parse_atom_data(&line);
-            if let Some(atom_info) = atom_parse_result{
-                //if so, should add the atom to the current block
-                //initialize new atom
-                let new_atom = Atom{
-                    element: atom_info.0,
-                    coordinate: Coordinate(atom_info.1, atom_info.2, atom_info.3)
-                };
-                //push the new atom to the current block
-                if let Some(block) = current_block.as_mut(){
-                    block.atoms.push(new_atom);
-                }
-                continue;
-            }
-            //check if the line is a block header
             let header_parse_result = block_header_parser.parse_block_header(&line);
+            let crystal_parse_result = cell_data_parser.parse_cell_info(&line);
+            let atom_parse_result = atom_data_parser.parse_atom_data(&line);
+            //check if the line is a block header
             if let Some(header_info) = header_parse_result{
                 //if so, should initialize a new block
                 current_block = Some(StructureBlock { 
@@ -187,12 +174,25 @@ pub mod file_parser{
                 current_block = None;
             }
             //check if the line is a cell information line
-            let crystal_parse_result = cell_data_parser.parse_cell_info(&line);
             //if so, should set the block's crystal info
-            if let Some(crystal) = crystal_parse_result{
+            else if let Some(crystal) = crystal_parse_result{
                 if let Some(block) = current_block.as_mut(){
                     block.set_crystal_info(crystal);
                 }
+            }
+            //check if the line is a atom information line
+            else if let Some(atom_info) = atom_parse_result{
+                //if so, should add the atom to the current block
+                //initialize new atom
+                let new_atom = Atom{
+                    element: atom_info.0,
+                    coordinate: Coordinate(atom_info.1, atom_info.2, atom_info.3)
+                };
+                //push the new atom to the current block
+                if let Some(block) = current_block.as_mut(){
+                    block.atoms.push(new_atom);
+                }
+                continue;
             }
         }
         Ok(blocks)
