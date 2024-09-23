@@ -6,7 +6,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/${workspaceFolderBasename}",
-            "args": ["compare", "-f" ,"ref.arc", "-F", "ref2.arc"],
+            "args": ["convert", "-f" ,"ref.xyz", "-o", "ref1.arc"],
             "cwd": "${workspaceRoot}/test",
             "preLaunchTask": "rust: cargo build"
         }

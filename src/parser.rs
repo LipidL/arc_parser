@@ -1,9 +1,9 @@
-pub mod file_parser{
+pub mod arc{
     //! some necessary functions that parses .arc file
     use crate::modules::structures::{Atom, StructureBlock, Coordinate, CrystalInfo};
     use std::fs::File;
     use std::path::Path;
-    use std::io::{self, BufRead, Error, Write};
+    use std::io::{self, BufRead, Write};
     use regex::Regex;
 
     /**
@@ -254,8 +254,7 @@ pub mod file_parser{
     /**
     write some blocks into a file
      */
-    pub fn write_to_file(structures:Vec<StructureBlock>, path: String) -> Result<(), Error>
-    {
+    pub fn write_to_file(structures:Vec<StructureBlock>, path: String) -> io::Result<()> {
         let mut file = File::create(path)?;
         writeln!(file, "!BIOSYM archive 2")?;
         writeln!(file, "PBC=ON")?;
@@ -268,6 +267,217 @@ pub mod file_parser{
             }
             writeln!(file, "end")?;
             writeln!(file, "end")?;
+        }
+        Ok(())
+    }
+}
+
+pub mod xyz {
+    //! some necessary functions that parses .xyz file
+    use crate::modules::structures::{Atom, StructureBlock, Coordinate, CrystalInfo};
+    use std::fs::File;
+    use std::path::Path;
+    use std::io::{self, BufRead, Write};
+    use regex::Regex;
+
+    /**
+    an encapsulation of regex function parse_atom_data
+     */
+    pub struct AtomDataParser{
+        re: Regex,
+    }
+    impl AtomDataParser{
+        pub fn new() -> Self{
+            let atom_data_regex = Regex::new(r"^(?P<s>\w+)\s+(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)").unwrap();
+            Self { re: atom_data_regex }
+        }
+        /**
+        match the atom information and extract necessary values.
+        
+        common atom info:
+            C        7.210469000   10.148070000    0.813536200
+        extracts:
+        + s: String,  element
+        + f1: f64, x value
+        + f2: f64, y value
+        + f3: f64, z value
+        */
+        pub fn parse_atom_data(&self, input: &str) -> Option<(String, f64, f64, f64)> {
+            if let Some(caps) = self.re.captures(input) {
+                let s = caps.name("s").unwrap().as_str().to_string();
+                let f1 = caps.name("f1").unwrap().as_str().parse().unwrap();
+                let f2 = caps.name("f2").unwrap().as_str().parse().unwrap();
+                let f3 = caps.name("f3").unwrap().as_str().parse().unwrap();
+                return Some((s, f1, f2, f3));
+            }
+            None
+        }
+    }
+    pub fn read_file(filepath: String) -> io::Result<Vec<StructureBlock>>{
+        //generate a file reader
+        let path = Path::new(&filepath);
+        let file = File::open(path)?;
+        let reader = io::BufReader::new(file);
+        //initialize block vector and current block
+        let mut blocks:Vec<StructureBlock> = Vec::new();
+        let mut current_block: Option<StructureBlock> = None;
+        //compile necessary regex
+        let atom_data_parser = AtomDataParser::new();
+        let lines:Vec<_> = reader.lines().collect();
+        //read the file line by line
+        let mut iterator = lines.into_iter().peekable();
+        while let Some(line) = iterator.next(){
+            //handle cases of io error
+            let line = line?;
+            let atom_parse_result = atom_data_parser.parse_atom_data(&line);
+            //check if the line is a atom information line
+            if let Some(atom_info) = atom_parse_result{
+                //if so, should add the atom to the current block
+                //initialize new atom
+                let new_atom = Atom{
+                    element: atom_info.0,
+                    coordinate: Coordinate(atom_info.1, atom_info.2, atom_info.3)
+                };
+                //push the new atom to the current block
+                if let Some(block) = current_block.as_mut(){
+                    block.atoms.push(new_atom);
+                }
+            }
+            if line.parse::<u64>().is_ok() || iterator.peek().is_none(){
+                //if current line is a number, should push current block to block vector
+                if let Some(block) = current_block.take(){
+                    // find max and min of x, y, z
+                    let (min_x, max_x) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
+                        (acc.0.min(atom.coordinate.0), acc.1.max(atom.coordinate.0))
+                    });
+                    let (min_y, max_y) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
+                        (acc.0.min(atom.coordinate.1), acc.1.max(atom.coordinate.1))
+                    });
+                    let (min_z, max_z) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
+                        (acc.0.min(atom.coordinate.2), acc.1.max(atom.coordinate.2))
+                    });
+                    // move the atoms if x_min, y_min, z_min is not negative
+                    let x_shift = match min_x < 0.0 {
+                        true => -min_x + 10.0,
+                        false => 0.0
+                    };
+                    let y_shift = match min_y < 0.0 {
+                        true => -min_y + 10.0,
+                        false => 0.0
+                    };
+                    let z_shift = match min_z < 0.0 {
+                        true => -min_z + 10.0,
+                        false => 0.0
+                    };
+                    // move the atoms by x_shift, y_shift, z_shift
+                    let new_atoms = Vec::from_iter(block.atoms.iter().map(|atom| {
+                        Atom{
+                            element: atom.element.clone(),
+                            coordinate: Coordinate(atom.coordinate.0 + x_shift, atom.coordinate.1 + y_shift, atom.coordinate.2 + z_shift)
+                        }
+                    }));
+                    // update the crystal info
+                    let new_crystal = CrystalInfo{
+                        x: max_x + x_shift,
+                        y: max_y + y_shift,
+                        z: max_z + z_shift,
+                        alpha: block.crystal.alpha,
+                        beta: block.crystal.beta,
+                        gamma: block.crystal.gamma
+                    };
+                    let new_block = StructureBlock{
+                        number: block.number,
+                        energy: block.energy,
+                        symmetry: block.symmetry.clone(),
+                        crystal: new_crystal,
+                        atoms: new_atoms
+                    };
+
+                    blocks.push(new_block);
+                }
+                //initialize current block again
+                current_block = Some(StructureBlock { 
+                    number: 0,
+                    energy: 0.0,
+                    symmetry: String::from("C1"),
+                    crystal: CrystalInfo{
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                        alpha: 90.0,
+                        beta: 90.0,
+                        gamma: 90.0
+                    },
+                    atoms: Vec::new()
+                });
+            }
+        }
+        // if let Some(block) = current_block.take(){
+        //     // if this block is zero, should not push it to the blocks
+        //     if block.atoms.len() == 0{
+        //         return Ok(blocks);
+        //     }
+        //     // find max and min of x, y, z
+        //     let (min_x, max_x) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
+        //         (acc.0.min(atom.coordinate.0), acc.1.max(atom.coordinate.0))
+        //     });
+        //     let (min_y, max_y) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
+        //         (acc.0.min(atom.coordinate.1), acc.1.max(atom.coordinate.1))
+        //     });
+        //     let (min_z, max_z) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
+        //         (acc.0.min(atom.coordinate.2), acc.1.max(atom.coordinate.2))
+        //     });
+        //     // move the atoms if x_min, y_min, z_min is not negative
+        //     let x_shift = match min_x < 0.0 {
+        //         true => -min_x + 10.0,
+        //         false => 0.0
+        //     };
+        //     let y_shift = match min_y < 0.0 {
+        //         true => -min_y + 10.0,
+        //         false => 0.0
+        //     };
+        //     let z_shift = match min_z < 0.0 {
+        //         true => -min_z + 10.0,
+        //         false => 0.0
+        //     };
+        //     // move the atoms by x_shift, y_shift, z_shift
+        //     let new_atoms = Vec::from_iter(block.atoms.iter().map(|atom| {
+        //         Atom{
+        //             element: atom.element.clone(),
+        //             coordinate: Coordinate(atom.coordinate.0 + x_shift, atom.coordinate.1 + y_shift, atom.coordinate.2 + z_shift)
+        //         }
+        //     }));
+        //     // update the crystal info
+        //     let new_crystal = CrystalInfo{
+        //         x: max_x + x_shift,
+        //         y: max_y + y_shift,
+        //         z: max_z + z_shift,
+        //         alpha: block.crystal.alpha,
+        //         beta: block.crystal.beta,
+        //         gamma: block.crystal.gamma
+        //     };
+        //     let new_block = StructureBlock{
+        //         number: block.number,
+        //         energy: block.energy,
+        //         symmetry: block.symmetry.clone(),
+        //         crystal: new_crystal,
+        //         atoms: new_atoms
+        //     };
+
+        //     blocks.push(new_block);
+        // }
+        Ok(blocks)
+    }
+
+    pub fn write_to_file(structures:Vec<StructureBlock>, path: String) -> io::Result<()>
+    {
+        let mut file = File::create(path)?;
+        for block in structures.iter(){
+            writeln!(file, "{}", block.atoms.len())?;
+            writeln!(file, "Energy: {}", block.energy)?;
+            for atom in block.atoms.iter(){
+                writeln!(file, "{} {} {} {}", atom.element, atom.coordinate.0, atom.coordinate.1, atom.coordinate.2)?;
+            }
         }
         Ok(())
     }

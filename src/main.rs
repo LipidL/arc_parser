@@ -3,9 +3,10 @@ pub mod parser;
 mod analyzer;
 
 use crate::modules::structures::StructureBlock;
-use crate::parser::file_parser;
+use crate::parser::arc;
 use crate::analyzer::arc_analyzer::{self, check_atom_consistency, list_energy};
 use colored::*;
+use parser::xyz;
 use structopt::StructOpt;
 use itertools::Itertools;
 use nalgebra::{self as na, Const, Dyn, VecStorage};
@@ -25,6 +26,7 @@ enum SubProgram {
     Check(CheckArgs),
     Modify(ModifyArgs),
     Compare(CompareArgs),
+    Convert(ConvertArgs),
 }
 
 #[derive(StructOpt)]
@@ -75,8 +77,20 @@ struct CompareArgs{
     threads: Option<usize>,
 }
 
+#[derive(StructOpt)]
+struct ConvertArgs {
+    #[structopt(help = "The file to convert", short="f", long="file")]
+    file: String,
+    #[structopt(help = "The input file format", short="i", long="input")]
+    input_format:Option<String>,
+    #[structopt(help = "The output file format", short="F", long="format")]
+    output_format:Option<String>,
+    #[structopt(help = "The output file", short="o", long="output")]
+    output: String,
+}
+
 fn parse(args: ParseArgs){
-    let blocks = match file_parser::read_file(args.file){
+    let blocks = match arc::read_file(args.file){
         Ok(blocks) => blocks,
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
@@ -142,21 +156,21 @@ fn parse(args: ParseArgs){
 
 fn check(args: CheckArgs){
     let path = args.path;
-    let badstr_path = path.join("badstr");
-    let badstr = match file_parser::read_file(badstr_path.to_str().unwrap().to_string()){
+    let badstr_path = path.join("Badstr.arc");
+    let badstr = match arc::read_file(badstr_path.to_str().unwrap().to_string()){
         Ok(blocks) => blocks,
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
             std::process::exit(1);
         }
     };
-    let unconverged_index = file_parser::find_unconverged_strucutres(path).unwrap();
+    let unconverged_index = arc::find_unconverged_strucutres(path).unwrap();
     if badstr.len() >= 3 || unconverged_index.len() >= 3{
         println!("{}","this result might be unreliable!".red());
         println!("structure in Badstr.arc: {}",badstr.len());
         println!("unconverged iterations in lasp.out: {}", unconverged_index.len());
         println!("finding unconverged strucutres");
-        let all_strucutres = match file_parser::read_file("all.arc".to_owned()){
+        let all_strucutres = match arc::read_file("all.arc".to_owned()){
             Ok(blocks) => blocks,
             Err(error) => {
                 panic!("{}", error);
@@ -170,7 +184,7 @@ fn check(args: CheckArgs){
                 }
             }
         }
-        file_parser::write_to_file(unconverged_structure, String::from("unconverged.arc")).unwrap();
+        arc::write_to_file(unconverged_structure, String::from("unconverged.arc")).unwrap();
         println!("the unconverged structures have been written to unconverged.arc")
     }
     else {
@@ -179,7 +193,7 @@ fn check(args: CheckArgs){
 }
 
 fn modify(args: ModifyArgs){
-    let blocks = match file_parser::read_file(args.file.to_str().unwrap().to_string()){
+    let blocks = match arc::read_file(args.file.to_str().unwrap().to_string()){
         Ok(blocks) => blocks,
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
@@ -252,14 +266,14 @@ fn compare(args: CompareArgs){
     }
 
 
-    let blocks1 = match file_parser::read_file(args.file.to_str().unwrap().to_string()){
+    let blocks1 = match arc::read_file(args.file.to_str().unwrap().to_string()){
         Ok(blocks) => blocks,
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
             std::process::exit(1);
         }
     };
-    let blocks2 = match file_parser::read_file(args.file2.to_str().unwrap().to_string()){
+    let blocks2 = match arc::read_file(args.file2.to_str().unwrap().to_string()){
         Ok(blocks) => blocks,
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
@@ -347,6 +361,67 @@ fn compare(args: CompareArgs){
     } 
 }
 
+fn convert(args: ConvertArgs){
+    let input_format = match args.input_format{
+        Some(format) => format.to_lowercase(),
+        None => {
+            let path = std::path::Path::new(&args.file);
+            match path.extension(){
+                Some(ext) => {
+                    match ext.to_str(){
+                        Some(ext) => ext.to_string().to_lowercase(),
+                        None => {
+                            eprintln!("{}: invalid file extension", "Error".red());
+                            std::process::exit(1);
+                        }
+                    }
+                },
+                None => {
+                    eprintln!("{}: invalid file extension", "Error".red());
+                    std::process::exit(1);
+                }
+            }
+        }
+    };
+    let structures = match input_format.as_str() {
+        "arc" => arc::read_file(args.file.to_string()).unwrap(),
+        "xyz" => xyz::read_file(args.file.to_string()).unwrap(),
+        _ => {
+            eprintln!("{}: invalid input format", "Error".red());
+            std::process::exit(1);
+        }
+    };
+    let output_format = match args.output_format{
+        Some(format) => format.to_lowercase(),
+        None => {
+            let path = std::path::Path::new(&args.output);
+            match path.extension(){
+                Some(ext) => {
+                    match ext.to_str(){
+                        Some(ext) => ext.to_string().to_lowercase(),
+                        None => {
+                            eprintln!("{}: invalid file extension", "Error".red());
+                            std::process::exit(1);
+                        }
+                    }
+                },
+                None => {
+                    eprintln!("{}: invalid file extension", "Error".red());
+                    std::process::exit(1);
+                }
+            }
+        }
+    };
+    match output_format.as_str(){
+        "arc" => arc::write_to_file(structures, args.output).unwrap(),
+        "xyz" => xyz::write_to_file(structures, args.output).unwrap(),
+        _ => {
+            eprintln!("{}: invalid output format", "Error".red());
+            std::process::exit(1);
+        }
+    }
+}
+
 fn main(){
     let main_program = MainProgram::from_args();
     match main_program.subprogram {
@@ -361,6 +436,9 @@ fn main(){
         },
         SubProgram::Compare(args) => {
             compare(args);
+        },
+        SubProgram::Convert(args) => {
+            convert(args);
         }
     }
 }
