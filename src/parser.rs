@@ -412,60 +412,6 @@ pub mod xyz {
                 });
             }
         }
-        // if let Some(block) = current_block.take(){
-        //     // if this block is zero, should not push it to the blocks
-        //     if block.atoms.len() == 0{
-        //         return Ok(blocks);
-        //     }
-        //     // find max and min of x, y, z
-        //     let (min_x, max_x) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
-        //         (acc.0.min(atom.coordinate.0), acc.1.max(atom.coordinate.0))
-        //     });
-        //     let (min_y, max_y) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
-        //         (acc.0.min(atom.coordinate.1), acc.1.max(atom.coordinate.1))
-        //     });
-        //     let (min_z, max_z) = block.atoms.iter().fold((f64::MAX, f64::MIN), |acc, atom| {
-        //         (acc.0.min(atom.coordinate.2), acc.1.max(atom.coordinate.2))
-        //     });
-        //     // move the atoms if x_min, y_min, z_min is not negative
-        //     let x_shift = match min_x < 0.0 {
-        //         true => -min_x + 10.0,
-        //         false => 0.0
-        //     };
-        //     let y_shift = match min_y < 0.0 {
-        //         true => -min_y + 10.0,
-        //         false => 0.0
-        //     };
-        //     let z_shift = match min_z < 0.0 {
-        //         true => -min_z + 10.0,
-        //         false => 0.0
-        //     };
-        //     // move the atoms by x_shift, y_shift, z_shift
-        //     let new_atoms = Vec::from_iter(block.atoms.iter().map(|atom| {
-        //         Atom{
-        //             element: atom.element.clone(),
-        //             coordinate: Coordinate(atom.coordinate.0 + x_shift, atom.coordinate.1 + y_shift, atom.coordinate.2 + z_shift)
-        //         }
-        //     }));
-        //     // update the crystal info
-        //     let new_crystal = CrystalInfo{
-        //         x: max_x + x_shift,
-        //         y: max_y + y_shift,
-        //         z: max_z + z_shift,
-        //         alpha: block.crystal.alpha,
-        //         beta: block.crystal.beta,
-        //         gamma: block.crystal.gamma
-        //     };
-        //     let new_block = StructureBlock{
-        //         number: block.number,
-        //         energy: block.energy,
-        //         symmetry: block.symmetry.clone(),
-        //         crystal: new_crystal,
-        //         atoms: new_atoms
-        //     };
-
-        //     blocks.push(new_block);
-        // }
         Ok(blocks)
     }
 
