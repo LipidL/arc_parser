@@ -42,7 +42,7 @@ struct ParseArgs{
     #[structopt(help = "enable list the energy of each structure", short="l", long="list")]
     energy_list: bool,
     #[structopt(help = "enable extract the minimum structure", short="e", long="extract")]
-    extract: bool,
+    extract: Option<usize>,
     #[structopt(help = "calculate the coordination number of the atoms in given structure", long="coord")]
     coordinate: Option<usize>,
     #[structopt(help = "calculate the interplanar spacing of the plains horizontal with the plain specified by given atoms", long="plane")]
@@ -123,15 +123,26 @@ fn parse(args: ParseArgs){
     if args.energy_list {
         list_energy(&blocks);
     }
-    if args.extract {
-        let min_block = arc_analyzer::extract_minimum(&blocks);
-        match min_block {
-            None => println!("No minimum block found"),
-            Some(block) => {
-                block.write_to_file(String::from("minimum.arc")).unwrap();
-                println!("Minimum block written to minimum.arc");
+    if let Some(a)  = args.extract {
+        if a > blocks.len(){
+            println!("{}: index out of range", "Error".red());
+            std::process::exit(1);
+        }
+        else if a == 0{
+            let min_block = arc_analyzer::extract_minimum(&blocks);
+            match min_block {
+                None => println!("No minimum block found"),
+                Some(block) => {
+                    block.write_to_file(String::from("extracted.arc")).unwrap();
+                    println!("Minimum block written to minimum.arc");
+                }
             }
         }
+        else {
+            blocks[a-1].clone().write_to_file(String::from("extracted.arc")).unwrap();
+            println!("Block {} written to extracted.arc", a);
+        }
+
     }
     match args.coordinate{
         Some(n) => {
