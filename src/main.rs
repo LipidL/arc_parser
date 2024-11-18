@@ -47,6 +47,8 @@ struct ParseArgs{
     coordinate: Option<usize>,
     #[structopt(help = "calculate the interplanar spacing of the plains horizontal with the plain specified by given atoms", long="plane")]
     plain: Option<Vec<usize>>,
+    #[structopt(help = "extract all structures into seperate file", long="split")]
+    seperate: bool,
 }
 
 #[derive(StructOpt)]
@@ -161,6 +163,11 @@ fn parse(args: ParseArgs){
         }
         None => {
             ()
+        }
+    }
+    if args.seperate {
+        for (i, block) in blocks.iter().enumerate(){
+            block.clone().write_to_file(format!("{}.arc", i)).unwrap();
         }
     }
 }
