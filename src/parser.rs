@@ -144,11 +144,8 @@ pub mod arc{
         for line in reader.lines(){
             //handle cases of io error
             let line = line?;
-            let header_parse_result = block_header_parser.parse_block_header(&line);
-            let crystal_parse_result = cell_data_parser.parse_cell_info(&line);
-            let atom_parse_result = atom_data_parser.parse_atom_data(&line);
             //check if the line is a atom information line
-            if let Some(atom_info) = atom_parse_result{
+            if let Some(atom_info) = atom_data_parser.parse_atom_data(&line){
                 //if so, should add the atom to the current block
                 //initialize new atom
                 let new_atom = Atom{
@@ -161,7 +158,7 @@ pub mod arc{
                 }
             }
             //check if the line is a block header
-            else if let Some(header_info) = header_parse_result{
+            else if let Some(header_info) = block_header_parser.parse_block_header(&line){
                 //if so, should initialize a new block
                 current_block = Some(StructureBlock { 
                     number: header_info.0,
@@ -188,7 +185,7 @@ pub mod arc{
             }
             //check if the line is a cell information line
             //if so, should set the block's crystal info
-            else if let Some(crystal) = crystal_parse_result{
+            else if let Some(crystal) = cell_data_parser.parse_cell_info(&line){
                 if let Some(block) = current_block.as_mut(){
                     block.set_crystal_info(crystal);
                 }
