@@ -136,6 +136,42 @@ pub struct Element {
                     atom_radius: 1.17,
                 },
             );
+            elements.insert(
+                String::from("C"),
+                Element {
+                    name: String::from("Carbon"),
+                    atomic_number: 6,
+                    mass: 12.011,
+                    valence_radius: 0.77, 
+                    valence_electrons: 4, 
+                    ion_radius: HashMap::new(), // Replace with actual value
+                    atom_radius: 0.91,
+                },
+            );
+            elements.insert(
+                String::from("H"),
+                Element {
+                    name: String::from("Hydrogen"),
+                    atomic_number: 1,
+                    mass: 1.008,
+                    valence_radius: 0.37, 
+                    valence_electrons: 1, 
+                    ion_radius: HashMap::new(), // Replace with actual value
+                    atom_radius: 0.42,
+                },
+            );
+            elements.insert(
+                String::from("O"),
+                Element {
+                    name: String::from("Oxygen"),
+                    atomic_number: 8,
+                    mass: 15.999,
+                    valence_radius: 0.66, 
+                    valence_electrons: 6, 
+                    ion_radius: HashMap::new(), // Replace with actual value
+                    atom_radius: 0.66,
+                },
+            );
 
             // Add more elements...
 
