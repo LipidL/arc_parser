@@ -6,7 +6,7 @@ pub mod structures {
         Z
     }
 
-    use std::{fs::File, io::{Error, Write}, ops::Sub};
+    use std::{fmt::Debug, fs::File, io::{Error, Write}, ops::Sub};
     #[derive(Clone)] 
     pub struct Coordinate(pub f64,pub f64,pub f64);
 
@@ -28,6 +28,11 @@ pub mod structures {
             }
         }
     }
+    impl Debug for Atom {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{} at ({}, {}, {})", self.element, self.coordinate.0, self.coordinate.1, self.coordinate.2)
+        }
+    }
 
     /// parameters of a cell
     #[derive(Clone)] 
@@ -38,6 +43,11 @@ pub mod structures {
         pub alpha: f64,
         pub beta: f64,
         pub gamma: f64,
+    }
+    impl Debug for CrystalInfo {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "Cell parameters: a={}, b={}, c={}, alpha={}, beta={}, gamma={}", self.x, self.y, self.z, self.alpha, self.beta, self.gamma)
+        }
     }
 
     ///a block in an .arc file
@@ -91,6 +101,11 @@ pub mod structures {
                 CoordinateChoice::Z => new_block.crystal.z *= scale,
             }
             new_block
+        }
+    }
+    impl Debug for StructureBlock {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "Block {} with {} atoms", self.number, self.atoms.len())
         }
     }
 }
@@ -209,7 +224,7 @@ mod tests {
     #[test]
     fn test_periodic_table_missing_element() {
         let table = PeriodicTable::new();
-        assert_eq!(table.get("H"), None);
+        assert_eq!(table.get("U"), None);
     }
 
     #[test]

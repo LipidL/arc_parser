@@ -3,13 +3,12 @@ pub mod parser;
 mod analyzer;
 
 use crate::modules::structures::StructureBlock;
-use crate::parser::arc;
 use crate::analyzer::arc_analyzer::{self, check_atom_consistency, list_energy};
 use colored::*;
-use parser::xyz;
 use structopt::StructOpt;
 use itertools::Itertools;
 use nalgebra::{self as na, Const, Dyn, VecStorage};
+use std::path::Path;
 use std::sync::Arc;
 use ctrlc;
 use memory_stats::memory_stats;
@@ -92,8 +91,8 @@ struct ConvertArgs {
 }
 
 fn parse(args: ParseArgs){
-    let blocks = match arc::read_file(args.file){
-        Ok(blocks) => blocks,
+    let blocks = match parser::parser::read_file(&args.file, true){
+        Ok(blocks) => blocks.unwrap(),
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
             std::process::exit(1);
@@ -175,21 +174,21 @@ fn parse(args: ParseArgs){
 fn check(args: CheckArgs){
     let path = args.path;
     let badstr_path = path.join("Badstr.arc");
-    let badstr = match arc::read_file(badstr_path.to_str().unwrap().to_string()){
-        Ok(blocks) => blocks,
+    let badstr = match parser::parser::read_file(badstr_path.to_str().unwrap(), true){
+        Ok(blocks) => blocks.unwrap(),
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
             std::process::exit(1);
         }
     };
-    let unconverged_index = arc::find_unconverged_strucutres(path).unwrap();
+    let unconverged_index = parser::parser::find_unconverged_strucutres(path).unwrap();
     if badstr.len() >= 3 || unconverged_index.len() >= 3{
         println!("{}","this result might be unreliable!".red());
         println!("structure in Badstr.arc: {}",badstr.len());
         println!("unconverged iterations in lasp.out: {}", unconverged_index.len());
         println!("finding unconverged strucutres");
-        let all_strucutres = match arc::read_file("all.arc".to_owned()){
-            Ok(blocks) => blocks,
+        let all_strucutres = match parser::parser::read_file("all.arc", true){
+            Ok(blocks) => blocks.unwrap(),
             Err(error) => {
                 panic!("{}", error);
             }
@@ -202,7 +201,8 @@ fn check(args: CheckArgs){
                 }
             }
         }
-        arc::write_to_file(unconverged_structure, String::from("unconverged.arc")).unwrap();
+        let writer = parser::parser::get_parser("arc");
+        writer.write_structure(&unconverged_structure, std::path::Path::new("unconverged.arc")).unwrap();
         println!("the unconverged structures have been written to unconverged.arc")
     }
     else {
@@ -211,8 +211,8 @@ fn check(args: CheckArgs){
 }
 
 fn modify(args: ModifyArgs){
-    let blocks = match arc::read_file(args.file.to_str().unwrap().to_string()){
-        Ok(blocks) => blocks,
+    let blocks = match parser::parser::read_file(args.file.to_str().unwrap(), true){
+        Ok(blocks) => blocks.unwrap(),
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
             std::process::exit(1);
@@ -245,7 +245,8 @@ fn modify(args: ModifyArgs){
                     None
                 }
             };
-            block.clone().write_to_file(String::from("rearranged.arc")).unwrap();
+            let writer = parser::parser::get_parser("arc");
+            writer.write_structure(&vec![block.clone()], std::path::Path::new("rearranged.arc")).unwrap();
             match coordination{
                 Some(coord) => println!("the rearranged minimum structure (by {} value) has been generated.", coord),
                 None => println!("Please specify the coordination to be sorted!\n rearranged.arc reamains unchanged.")
@@ -264,7 +265,8 @@ fn modify(args: ModifyArgs){
                 new_block = new_block.scale_crystal(modules::structures::CoordinateChoice::Y, scale[1]);
                 new_block = new_block.scale_crystal(modules::structures::CoordinateChoice::Z, scale[2]);
             }
-            new_block.write_to_file(String::from("scaled.arc")).unwrap();
+            let writer = parser::parser::get_parser("arc");
+            writer.write_structure(&vec![new_block], std::path::Path::new("scaled.arc")).unwrap();
             println!("the scaled structure has been generated.");
         },
         None => (),
@@ -284,15 +286,15 @@ fn compare(args: CompareArgs){
     }
 
 
-    let blocks1 = match arc::read_file(args.file.to_str().unwrap().to_string()){
-        Ok(blocks) => blocks,
+    let blocks1 = match parser::parser::read_file(args.file.to_str().unwrap(), true){
+        Ok(blocks) => blocks.unwrap(),
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
             std::process::exit(1);
         }
     };
-    let blocks2 = match arc::read_file(args.file2.to_str().unwrap().to_string()){
-        Ok(blocks) => blocks,
+    let blocks2 = match parser::parser::read_file(args.file2.to_str().unwrap(), true){
+        Ok(blocks) => blocks.unwrap(),
         Err(e) => {
             eprintln!("{}: {}", "Error".red(), e);
             std::process::exit(1);
@@ -380,64 +382,30 @@ fn compare(args: CompareArgs){
 }
 
 fn convert(args: ConvertArgs){
-    let input_format = match args.input_format{
-        Some(format) => format.to_lowercase(),
-        None => {
-            let path = std::path::Path::new(&args.file);
-            match path.extension(){
-                Some(ext) => {
-                    match ext.to_str(){
-                        Some(ext) => ext.to_string().to_lowercase(),
-                        None => {
-                            eprintln!("{}: invalid file extension", "Error".red());
-                            std::process::exit(1);
-                        }
-                    }
-                },
-                None => {
-                    eprintln!("{}: invalid file extension", "Error".red());
+    let structures = match args.input_format {
+        Some(format) => {
+            let reader = parser::parser::get_parser(&format);
+            match reader.parse_structure(&Path::new(&args.file), true){
+                Ok(blocks) => blocks.unwrap(),
+                Err(e) => {
+                    eprintln!("{}: {}", "Error".red(), e);
                     std::process::exit(1);
                 }
             }
         }
-    };
-    let structures = match input_format.as_str() {
-        "arc" => arc::read_file(args.file.to_string()).unwrap(),
-        "xyz" => xyz::read_file(args.file.to_string()).unwrap(),
-        _ => {
-            eprintln!("{}: invalid input format", "Error".red());
-            std::process::exit(1);
-        }
-    };
-    let output_format = match args.output_format{
-        Some(format) => format.to_lowercase(),
         None => {
-            let path = std::path::Path::new(&args.output);
-            match path.extension(){
-                Some(ext) => {
-                    match ext.to_str(){
-                        Some(ext) => ext.to_string().to_lowercase(),
-                        None => {
-                            eprintln!("{}: invalid file extension", "Error".red());
-                            std::process::exit(1);
-                        }
-                    }
-                },
-                None => {
-                    eprintln!("{}: invalid file extension", "Error".red());
-                    std::process::exit(1);
-                }
-            }
+            parser::parser::read_file(&args.file, true).unwrap().unwrap()
         }
     };
-    match output_format.as_str(){
-        "arc" => arc::write_to_file(structures, args.output).unwrap(),
-        "xyz" => xyz::write_to_file(structures, args.output).unwrap(),
-        _ => {
-            eprintln!("{}: invalid output format", "Error".red());
-            std::process::exit(1);
+    let writer = match args.output_format {
+        Some(format) => {
+            parser::parser::get_parser(&format)
         }
-    }
+        None => {
+            parser::parser::get_parser(Path::new(&args.output).extension().unwrap().to_str().unwrap())
+        }
+    };
+    writer.write_structure(&structures, Path::new(&args.output)).unwrap();
 }
 
 fn main(){
