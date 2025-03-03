@@ -6,7 +6,9 @@ pub mod structures {
         Z
     }
 
-    use std::{fmt::Debug, fs::File, io::{Error, Write}, ops::Sub};
+    use std::{fmt::Debug, io::Error, ops::Sub, path::Path};
+
+    use crate::parser::parser;
     #[derive(Clone)] 
     pub struct Coordinate(pub f64,pub f64,pub f64);
 
@@ -71,19 +73,11 @@ pub mod structures {
             self.crystal = crystal_info;
         }
         ///write the block to a file
-        pub fn write_to_file(self, path:String) -> Result<(), Error>{
-            let mut file = File::create(path)?;
-            writeln!(file, "!BIOSYM archive 2")?;
-            writeln!(file, "PBC=ON")?;
-            writeln!(file, "{: >28} Energy {: >10} {: >16.4} {: >18.6} {: >10}", "", 0, 0.0, self.energy, self.symmetry)?;
-            writeln!(file, "!DATE")?;
-            writeln!(file, "PBC {: >14.8} {: >14.8} {: >14.8} {: >14.8} {: >14.8} {: >14.8}", self.crystal.x, self.crystal.y, self.crystal.z, self.crystal.alpha, self.crystal.beta, self.crystal.gamma)?;
-            for (i, atom) in self.atoms.iter().enumerate() {
-                writeln!(file, "{: <5} {: >15.9} {: >15.9} {: >15.9} CORE {: >5} {: >1} {: <3} {: <5} {: <6} {: >5}", atom.element, (atom.coordinate.0), (atom.coordinate.1), (atom.coordinate.2), i+1, "", atom.element, atom.element, 0.0, i+1)?;
-            }
-            writeln!(file, "end")?;
-            writeln!(file, "end")?;
-            writeln!(file, "\n")?;
+        pub fn write(&self, path:&Path) -> Result<(), Error>{
+            // figure out the output format
+            let file_type = path.extension().unwrap().to_str().unwrap();
+            let writer = parser::get_parser(file_type);
+            writer.write_structure(&vec![self.clone()], path)?;
             Ok(())
         }
         pub fn expand_crystal(&self, scale:f64) -> StructureBlock{

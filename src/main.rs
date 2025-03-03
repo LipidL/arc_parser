@@ -134,13 +134,13 @@ fn parse(args: ParseArgs){
             match min_block {
                 None => println!("No minimum block found"),
                 Some(block) => {
-                    block.write_to_file(String::from("extracted.arc")).unwrap();
+                    block.write(Path::new("extracted.arc")).unwrap();
                     println!("Minimum block written to minimum.arc");
                 }
             }
         }
         else {
-            blocks[a-1].clone().write_to_file(String::from("extracted.arc")).unwrap();
+            blocks[a-1].clone().write(Path::new("extracted.arc")).unwrap();
             println!("Block {} written to extracted.arc", a);
         }
 
@@ -166,7 +166,7 @@ fn parse(args: ParseArgs){
     }
     if args.seperate {
         for (i, block) in blocks.iter().enumerate(){
-            block.clone().write_to_file(format!("{}.arc", i)).unwrap();
+            block.clone().write(Path::new(&format!("{}.arc", i))).unwrap();
         }
     }
 }
@@ -245,8 +245,7 @@ fn modify(args: ModifyArgs){
                     None
                 }
             };
-            let writer = parser::parser::get_parser("arc");
-            writer.write_structure(&vec![block.clone()], std::path::Path::new("rearranged.arc")).unwrap();
+            block.write(std::path::Path::new("rearranged.arc")).unwrap();
             match coordination{
                 Some(coord) => println!("the rearranged minimum structure (by {} value) has been generated.", coord),
                 None => println!("Please specify the coordination to be sorted!\n rearranged.arc reamains unchanged.")
@@ -265,8 +264,7 @@ fn modify(args: ModifyArgs){
                 new_block = new_block.scale_crystal(modules::structures::CoordinateChoice::Y, scale[1]);
                 new_block = new_block.scale_crystal(modules::structures::CoordinateChoice::Z, scale[2]);
             }
-            let writer = parser::parser::get_parser("arc");
-            writer.write_structure(&vec![new_block], std::path::Path::new("scaled.arc")).unwrap();
+            new_block.write(std::path::Path::new("scaled.arc")).unwrap();
             println!("the scaled structure has been generated.");
         },
         None => (),

@@ -29,7 +29,7 @@ pub mod parser{
             }
         }
     }
-    pub trait StructParser{
+    pub trait StructureIO{
         /// parse atom information line
         fn parse_atom(&self, input: &str) -> Option<Atom>;
 
@@ -125,7 +125,7 @@ pub mod parser{
             ]}
         }
     }
-    impl StructParser for ArcParser{
+    impl StructureIO for ArcParser{
         fn parse_atom(&self, input: &str) -> Option<Atom> {
             for regex in self.atom_data_regex.iter(){
                 if let Some(caps) = regex.captures(input) {
@@ -188,7 +188,7 @@ pub mod parser{
             None
         }
         fn is_illegal(&self, input: &str) -> bool {
-            input.is_empty() || (self.parse_atom(input).is_none() && self.parse_header(input).is_none() && self.parse_cell(input).is_none() && input != "end" && input != "end\n" && input != "end\r\n")
+            input.is_empty() || (self.parse_atom(input).is_none() && self.parse_header(input).is_none() && self.parse_cell(input).is_none() && !["end", "!DATE"].contains(&input.trim()) && !input.contains("!BIOSYM archive") && !input.contains("PBC="))
         }
         fn write_structure(&self, structures:&Vec<StructureBlock>, path: &Path) -> io::Result<()> {
             let mut file = File::create(path)?;
@@ -218,7 +218,7 @@ pub mod parser{
         }
     }
 
-    impl StructParser for XyzParser{
+    impl StructureIO for XyzParser{
         fn parse_atom(&self, input: &str) -> Option<Atom> {
             for regex in self.atom_data_regex.iter(){
                 if let Some(caps) = regex.captures(input) {
@@ -273,7 +273,7 @@ pub mod parser{
         }
     }
 
-    pub fn get_parser(file_type: &str) -> Box<dyn StructParser> {
+    pub fn get_parser(file_type: &str) -> Box<dyn StructureIO> {
         match file_type {
             "arc" => Box::new(ArcParser::new()),
             "xyz" => Box::new(XyzParser::new()),
@@ -350,6 +350,7 @@ mod tests {
     use std::io::Write;
 
     use crate::parser::parser::*;
+    use crate::modules::structures::*;
 
     #[test]
     fn test_parse_atom_success() {
@@ -535,5 +536,52 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, ParseError::IoError(_)));
+    }
+    #[test]
+    fn test_write_arc_structure_success() {
+        let parser = ArcParser::new();
+        let file = NamedTempFile::new().unwrap();
+        let blocks = vec![
+            StructureBlock{
+                number: 0,
+                energy: -3620.679360,
+                symmetry: "C1".to_string(),
+                crystal: CrystalInfo{
+                    x: 20.195,
+                    y: 20.195,
+                    z: 29.5141,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 120.0
+                },
+                atoms: vec![
+                    Atom{
+                        element: "C".to_string(),
+                        coordinate: Coordinate(7.210469, 10.14807, 0.8135362)
+                    }
+                ]
+            }
+        ];
+        let path = file.path();
+        let result = parser.write_structure(&blocks, path);
+        assert!(result.is_ok());
+        let read_blocks: Vec<StructureBlock> = parser.parse_structure(path, false).unwrap().unwrap();
+        assert_eq!(read_blocks.len(), 1);
+        let read_block = &read_blocks[0];
+        assert_eq!(read_block.number, 0);
+        assert_eq!(read_block.energy, -3620.679360);
+        assert_eq!(read_block.symmetry, "C1");
+        assert_eq!(read_block.crystal.x, 20.195);
+        assert_eq!(read_block.crystal.y, 20.195);
+        assert_eq!(read_block.crystal.z, 29.5141);
+        assert_eq!(read_block.crystal.alpha, 90.0);
+        assert_eq!(read_block.crystal.beta, 90.0);
+        assert_eq!(read_block.crystal.gamma, 120.0);
+        assert_eq!(read_block.atoms.len(), 1);
+        let read_atom = &read_block.atoms[0];
+        assert_eq!(read_atom.element, "C");
+        assert_eq!(read_atom.coordinate.0, 7.210469);
+        assert_eq!(read_atom.coordinate.1, 10.14807);
+        assert_eq!(read_atom.coordinate.2, 0.8135362);
     }
 }
