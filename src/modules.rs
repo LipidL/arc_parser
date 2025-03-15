@@ -181,6 +181,54 @@ pub struct Element {
                     atom_radius: 0.66,
                 },
             );
+            elements.insert(
+                String::from("N"), 
+                Element {
+                    name: String::from("Nitrogen"),
+                    atomic_number: 7,
+                    mass: 14.007,
+                    valence_radius: 0.70, 
+                    valence_electrons: 5, 
+                    ion_radius: HashMap::new(), // Replace with actual value
+                    atom_radius: 0.56,
+                },
+            );
+            elements.insert(
+                String::from("S"), 
+                Element {
+                    name: String::from("Sulfur"),
+                    atomic_number: 16,
+                    mass: 32.06,
+                    valence_radius: 1.02, 
+                    valence_electrons: 6, 
+                    ion_radius: HashMap::new(), // Replace with actual value
+                    atom_radius: 1.04,
+                },
+            );
+            elements.insert(
+                String::from("Si"), 
+                Element {
+                    name: String::from("Silicon"),
+                    atomic_number: 14,
+                    mass: 28.085,
+                    valence_radius: 1.17, 
+                    valence_electrons: 4, 
+                    ion_radius: HashMap::new(), // Replace with actual value
+                    atom_radius: 1.11,
+                },
+            );
+            elements.insert(
+                String::from("P"), 
+                Element {
+                    name: String::from("Phosphorus"),
+                    atomic_number: 15,
+                    mass: 30.974,
+                    valence_radius: 1.10, 
+                    valence_electrons: 5, 
+                    ion_radius: HashMap::new(), // Replace with actual value
+                    atom_radius: 1.07,
+                },
+            );
 
             // Add more elements...
 
