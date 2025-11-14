@@ -273,10 +273,196 @@ pub mod parser{
         }
     }
 
+    pub struct PoscarParser {
+        atom_data_regex: Vec<Regex>,
+    }
+
+    impl PoscarParser {
+        pub fn new() -> Self {
+            Self {
+                atom_data_regex: vec![
+                    Regex::new(r"^\s*(?P<f1>-?\d+\.\d+)\s+(?P<f2>-?\d+\.\d+)\s+(?P<f3>-?\d+\.\d+)").unwrap()
+                ]
+            }
+        }
+    }
+
+    impl StructureIO for PoscarParser {
+        fn parse_atom(&self, input: &str) -> Option<Atom> {
+            for regex in self.atom_data_regex.iter() {
+                if let Some(caps) = regex.captures(input) {
+                    let f1 = caps.name("f1").unwrap().as_str().parse().unwrap();
+                    let f2 = caps.name("f2").unwrap().as_str().parse().unwrap();
+                    let f3 = caps.name("f3").unwrap().as_str().parse().unwrap();
+                    return Some(Atom {
+                        element: String::new(), // Will be set during parsing
+                        coordinate: Coordinate(f1, f2, f3)
+                    });
+                }
+            }
+            None
+        }
+
+        fn parse_cell(&self, _input: &str) -> Option<CrystalInfo> {
+            None // Cell info is parsed specially in POSCAR
+        }
+
+        fn parse_header(&self, _input: &str) -> Option<StructureBlock> {
+            None // POSCAR has a different structure
+        }
+
+        fn parse_structure(&self, input: &Path, _ignore_parse_error: bool) -> Result<Option<Vec<StructureBlock>>, ParseError> {
+            let file = File::open(input).map_err(ParseError::IoError)?;
+            let reader = io::BufReader::new(file);
+            let lines: Vec<String> = reader.lines().collect::<Result<_, _>>().map_err(ParseError::IoError)?;
+            
+            if lines.len() < 8 {
+                return Ok(None);
+            }
+
+            // Parse scaling factor (line 1)
+            let scale: f64 = lines[1].trim().parse().unwrap_or(1.0);
+
+            // Parse lattice vectors (lines 2-4)
+            let mut lattice = [[0.0; 3]; 3];
+            for i in 0..3 {
+                let parts: Vec<f64> = lines[2 + i]
+                    .split_whitespace()
+                    .filter_map(|s| s.parse().ok())
+                    .collect();
+                if parts.len() >= 3 {
+                    lattice[i] = [parts[0] * scale, parts[1] * scale, parts[2] * scale];
+                }
+            }
+
+            // Calculate cell parameters from lattice vectors
+            let a = (lattice[0][0].powi(2) + lattice[0][1].powi(2) + lattice[0][2].powi(2)).sqrt();
+            let b = (lattice[1][0].powi(2) + lattice[1][1].powi(2) + lattice[1][2].powi(2)).sqrt();
+            let c = (lattice[2][0].powi(2) + lattice[2][1].powi(2) + lattice[2][2].powi(2)).sqrt();
+
+            // Parse element names (line 5)
+            let elements: Vec<String> = lines[5].split_whitespace().map(|s| s.to_string()).collect();
+
+            // Parse atom counts (line 6)
+            let counts: Vec<usize> = lines[6]
+                .split_whitespace()
+                .filter_map(|s| s.parse().ok())
+                .collect();
+
+            // Check coordinate type (line 7) - Direct or Cartesian
+            let is_direct = lines[7].trim().to_lowercase().starts_with('d');
+
+            let mut atoms = Vec::new();
+            let mut line_idx = 8; // Start after "Direct" or "Cartesian" line
+
+            for (elem, &count) in elements.iter().zip(counts.iter()) {
+                for _ in 0..count {
+                    if line_idx < lines.len() {
+                        if let Some(mut atom) = self.parse_atom(&lines[line_idx]) {
+                            atom.element = elem.clone();
+                            
+                            // Convert fractional to Cartesian if needed
+                            if is_direct {
+                                let frac_x = atom.coordinate.0;
+                                let frac_y = atom.coordinate.1;
+                                let frac_z = atom.coordinate.2;
+                                
+                                atom.coordinate.0 = frac_x * lattice[0][0] + frac_y * lattice[1][0] + frac_z * lattice[2][0];
+                                atom.coordinate.1 = frac_x * lattice[0][1] + frac_y * lattice[1][1] + frac_z * lattice[2][1];
+                                atom.coordinate.2 = frac_x * lattice[0][2] + frac_y * lattice[1][2] + frac_z * lattice[2][2];
+                            }
+                            
+                            atoms.push(atom);
+                        }
+                        line_idx += 1;
+                    }
+                }
+            }
+
+            let block = StructureBlock {
+                number: 0,
+                energy: 0.0,
+                symmetry: "P1".to_string(),
+                crystal: CrystalInfo {
+                    x: a,
+                    y: b,
+                    z: c,
+                    alpha: 90.0,
+                    beta: 90.0,
+                    gamma: 90.0
+                },
+                atoms
+            };
+
+            Ok(Some(vec![block]))
+        }
+
+        fn write_structure(&self, structures: &Vec<StructureBlock>, path: &Path) -> io::Result<()> {
+            let mut file = File::create(path)?;
+            
+            for block in structures.iter() {
+                writeln!(file, "Generated by arc_parser")?;
+                writeln!(file, "1.0")?;
+                writeln!(file, "{:21.16} {:21.16} {:21.16}", block.crystal.x, 0.0, 0.0)?;
+                writeln!(file, "{:21.16} {:21.16} {:21.16}", 0.0, block.crystal.y, 0.0)?;
+                writeln!(file, "{:21.16} {:21.16} {:21.16}", 0.0, 0.0, block.crystal.z)?;
+                
+                // Group atoms by element
+                let mut element_counts: Vec<(String, usize)> = Vec::new();
+                let mut current_elem = String::new();
+                
+                for atom in &block.atoms {
+                    if atom.element != current_elem {
+                        if !current_elem.is_empty() {
+                            element_counts.push((current_elem.clone(), 1));
+                        } else {
+                            element_counts.push((atom.element.clone(), 1));
+                        }
+                        current_elem = atom.element.clone();
+                    } else if let Some(last) = element_counts.last_mut() {
+                        last.1 += 1;
+                    }
+                }
+                
+                for (elem, _) in &element_counts {
+                    write!(file, "{} ", elem)?;
+                }
+                writeln!(file)?;
+                
+                for (_, count) in &element_counts {
+                    write!(file, "{} ", count)?;
+                }
+                writeln!(file)?;
+                
+                writeln!(file, "Direct")?;
+                
+                // Build lattice matrix for conversion
+                let lattice = [
+                    [block.crystal.x, 0.0, 0.0],
+                    [0.0, block.crystal.y, 0.0],
+                    [0.0, 0.0, block.crystal.z]
+                ];
+                
+                for atom in &block.atoms {
+                    // Convert Cartesian to fractional coordinates
+                    let frac_x = atom.coordinate.0 / lattice[0][0];
+                    let frac_y = atom.coordinate.1 / lattice[1][1];
+                    let frac_z = atom.coordinate.2 / lattice[2][2];
+                    
+                    writeln!(file, "{:21.16} {:21.16} {:21.16}", 
+                        frac_x, frac_y, frac_z)?;
+                }
+            }
+            
+            Ok(())
+        }
+    }
+
     pub fn get_parser(file_type: &str) -> Box<dyn StructureIO> {
         match file_type {
             "arc" => Box::new(ArcParser::new()),
             "xyz" => Box::new(XyzParser::new()),
+            "POSCAR" | "poscar" | "CONTCAR" | "contcar" => Box::new(PoscarParser::new()),
             _ => panic!("unsupported file type: {}", file_type)
         }
     }
